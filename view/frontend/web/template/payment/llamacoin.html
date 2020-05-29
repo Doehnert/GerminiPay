@@ -19,7 +19,7 @@
         </div>
 
         <!-- Render the native credit card form. -->
-        <form class="form" data-bind="attr: {'id': getCode() + '-form'}">
+        <form class="form" data-bind="attr: {'id': getCode() + '-form'}" data-mage-init='{"validation":{}}' id="classyllama_llamacoin-form">
             
 
             <!--
@@ -183,12 +183,3 @@
         </div>
     </div>
 </div>
-
-<script>
-    require([
-        'jquery',
-        'inputMask'
-    ], function ($) {
-        $('#cpf').mask('000.000.000-00', {clearIfNotMatch: true});
-    });
-</script>

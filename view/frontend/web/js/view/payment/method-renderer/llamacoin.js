@@ -1,15 +1,15 @@
 define([
         'jquery',
         'Magento_Payment/js/view/payment/cc-form',
-        'Magento_Braintree/js/view/payment/validator-handler'
+        'Magento_Braintree/js/view/payment/validator-handler',
+        'Magento_Payment/js/model/credit-card-validation/validator'
     ],
     function ($, Component, Validator) {
         'use strict';
 
         return Component.extend({
             defaults: {
-                template: 'ClassyLlama_LlamaCoin/payment/llamacoin',
-                cpf: 1234
+                template: 'ClassyLlama_LlamaCoin/payment/llamacoin'
             },
 
             getData: function () {
@@ -43,6 +43,9 @@ define([
 
             validate: function() {
                 var $form = $('#' + this.getCode() + '-form');
+                console.log('teste');
+                console.log($form);
+                console.log($form.validation());
                 return $form.validation() && $form.validation('isValid');
             }
 
