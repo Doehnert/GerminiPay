@@ -1,3 +1,5 @@
+
+
 <div class="payment-method" data-bind="css: {'_active': (getCode() == isChecked())}">
     <div class="payment-method-title field choice">
         <input type="radio"
@@ -16,6 +18,10 @@
             <!-- ko foreach: $parent.getRegion(getBillingAddressFormName()) -->
             <!-- ko template: getTemplate() --><!-- /ko -->
             <!--/ko-->
+        </div>
+
+        <div data-mage-init='{"hello": {"message": "HELLO WORLD!"}}'>
+            Content
         </div>
 
         <!-- Render the native credit card form. -->
@@ -68,7 +74,7 @@
                         <span><!-- ko i18n: 'Credit Card Number'--><!-- /ko --></span>
                     </label>
                     <div class="control">
-                        <input type="number" name="payment[cc_number]" class="input-text" value=""
+                        <input style="width: 100%" type="number" name="payment[cc_number]" class="input-text" value=""
                             data-bind="attr: {
                                                 autocomplete: off,
                                                 id: getCode() + '_cc_number',
@@ -84,6 +90,10 @@
                     <label data-bind="attr: {for: getCode() + '_expiration'}" class="label">
                         <span><!-- ko i18n: 'Expiration Date'--><!-- /ko --></span>
                     </label>
+
+              
+
+
                     <div class="control">
                         <div class="fields group group-2">
                             <div class="field no-label month">
@@ -100,6 +110,10 @@
                                     </select>
                                 </div>
                             </div>
+
+                    <label data-bind="attr: {for: getCode() + '_expiration_yr'}" class="label">
+                        <span><!-- ko i18n: 'Ano de expiração'--><!-- /ko --></span>
+                    </label>      
                             <div class="field no-label year">
                                 <div class="control">
                                     <select name="payment[cc_exp_year]"
@@ -111,8 +125,8 @@
                                                     optionsText: 'year',
                                                     optionsCaption: $t('Year'),
                                                     value: creditCardExpYear">
-                                    </select>
-                                </div>
+                                    </select>   
+                                </div>                                
                             </div>
                         </div>
                     </div>
@@ -148,10 +162,30 @@
                     </div>
                 </div>
 
-                <label for="cpf">Entre o cpf</label>
-                <br/>
+                <div class="field">
+                    <label for: "parcelas" class="label">Parcelas</label>
+                    <div class="control">
 
-                <input id="cpf" name="cpf" required class="text" placeholder= "Enter My cpf" >
+                        <select data-bind="options: userActions, value: selectedAction" id="parcelas" name="parcelas"></select>
+                        
+                    </div>
+                </div>                
+
+                <div class="field">
+                    <label for: "cpf" class="label">Informe o cpf ou cnpj</label>
+                    <div class="control">
+                        <input style="width: 100%" id="cpf" name="cpf" required class="text" placeholder= "Informe o cpf ou cnpj" >
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for: "nome" class="label">Nome do titular</label>
+                    <div class="control">
+                        <input style="width: 100%" id="nome" name="nome" required class="text" placeholder= "Nome do titular" >
+                    </div>
+                </div>
+
+                <div data-bind='mageInit: {"hello":{}}'></div>
 
                 <!-- /ko -->
             </fieldset>

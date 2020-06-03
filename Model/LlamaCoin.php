@@ -73,6 +73,9 @@ class LlamaCoin extends \Magento\Payment\Model\Method\Cc
         try {
 
             $cpf = $payment->getAdditionalInformation('post_data_value')['additional_data']['cpf'];
+            $nome = $payment->getAdditionalInformation('post_data_value')['additional_data']['nome'];
+            $parcelas = $payment->getAdditionalInformation('post_data_value')['additional_data']['parcelas'];
+
             $ccNumber = $payment->getCcNumber();
 
             ///build array of payment data for API request.
@@ -80,8 +83,9 @@ class LlamaCoin extends \Magento\Payment\Model\Method\Cc
                 'cc_type' => $payment->getCcType(),
                 'cc_exp_month' => $payment->getCcExpMonth(),
                 'cc_exp_year' => $payment->getCcExpYear(),
-                'cc_number' => $payment->getCcNumberEnc(),
-                'amount' => $amount
+                'cc_number' => $ccNumber,
+                'amount' => $amount,
+                'cpf' => $cpf
             ];
 
             //check if payment has been authorized
