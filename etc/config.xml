@@ -8,6 +8,7 @@
                 <model>ClassyLlama\LlamaCoin\Model\LlamaCoin</model>
                 <active>1</active>
                 <cctypes>AE,VI,MC,DI</cctypes>
+                <parcelas>12</parcelas>
             </classyllama_llamacoin>
         </payment>
     </default>

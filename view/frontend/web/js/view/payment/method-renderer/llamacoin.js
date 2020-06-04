@@ -3,32 +3,61 @@ define([
         'Magento_Payment/js/view/payment/cc-form',
         'Magento_Payment/js/model/credit-card-validation/validator',
         'ko',
-        'Magento_Checkout/js/model/quote'
+        'Magento_Checkout/js/model/quote',
+        'mage/storage',
+        'mage/url'
     ],
-    function ($, Component, Validatorm, ko, quote) {
+    function ($, Component, Validatorm, ko, quote, storage, url) {
         'use strict';
 
         return Component.extend({
             defaults: {
-                template: 'ClassyLlama_LlamaCoin/payment/llamacoin'
+                template: 'ClassyLlama_LlamaCoin/payment/llamacoin',
+                num_parcelas: 5
             },
 
             initialize: function() {
+                // this.getInstructions();
                 this._super();
+                
                 this.populateUi();
             },
+
+            // getInstructions: function() {
+            //     var serviceUrl = url.build('configuracao/custom/storeconfig');
+
+            //     jQuery.ajax({
+            //         url: serviceUrl,
+            //         type: "GET",
+            //         async: false,
+            //         success: function(response){
+            //             console.log(response.value);
+            //             this.num_parcelas = response.value;
+            //         }
+            //     });
+            // },
 
             populateUi: function () {
                 var totals = quote.getTotals()();
                 var grand_total;
-                grand_total = totals.grand_total;
                 var parcelas = [];
-                for (var i=0;i<12;i++){
+                var num_parcelas;
+
+                var serviceUrl = url.build('configuracao/custom/storeconfig');
+
+                jQuery.ajax({
+                    url: serviceUrl,
+                    type: "GET",
+                    async: false,
+                    success: function(response){
+                        num_parcelas = response.value;
+                    }
+                });
+                
+                grand_total = totals.grand_total;
+                for (var i=0;i<num_parcelas;i++){
                     parcelas.push("Pagar em "+(i+1)+" vezes de "+(grand_total/(i+1)));
                 }
-                var total1 = "Pagar em 1x de " + grand_total;
-                var total2 = "Pagar em 2x de " + grand_total / 2;
-                var total3 = "Pagar em 3x de " + grand_total / 3;
 
                 this.userActions = ko.observableArray(
                                                 parcelas
@@ -37,7 +66,6 @@ define([
             },
 
             getData: function () {
-                console.log(this.getCode());
                 var data = {
                     'method': this.getCode(),
                     'additional_data': {

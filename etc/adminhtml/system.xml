@@ -14,6 +14,11 @@
                     <label>Credit Card Types</label>
                     <source_model>Magento\Payment\Model\Source\Cctype</source_model>
                 </field>
+
+                <field id="parcelas" translate="label" type="text" sortOrder="1" showInDefault="1" showInWebsite="0" showInStore="0">
+                    <label>Numero máximo de parcelas aceitas</label>
+                    <comment>Numero máximo de parcelas aceitas</comment>
+                </field>                
             </group>
         </section>
     </system>
