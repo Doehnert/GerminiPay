@@ -1,5 +1,5 @@
 <?php
-namespace ClassyLlama\LlamaCoin\Observer;
+namespace Vexpro\GerminiPay\Observer;
 
 use Magento\Framework\DataObject;
 use Magento\Framework\Encryption\EncryptorInterface;

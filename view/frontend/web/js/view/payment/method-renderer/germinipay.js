@@ -12,7 +12,7 @@ define([
 
         return Component.extend({
             defaults: {
-                template: 'ClassyLlama_LlamaCoin/payment/llamacoin',
+                template: 'Vexpro_GerminiPay/payment/germinipay',
                 num_parcelas: 5
             },
 
@@ -37,6 +37,22 @@ define([
             //     });
             // },
 
+            formatMoney: function(amount, decimalCount = 2, decimal = ".", thousands = ","){
+                try {
+                    decimalCount = Math.abs(decimalCount);
+                    decimalCount = isNaN(decimalCount) ? 2 : decimalCount;
+                
+                    const negativeSign = amount < 0 ? "-" : "";
+                
+                    let i = parseInt(amount = Math.abs(Number(amount) || 0).toFixed(decimalCount)).toString();
+                    let j = (i.length > 3) ? i.length % 3 : 0;
+                
+                    return negativeSign + (j ? i.substr(0, j) + thousands : '') + i.substr(j).replace(/(\d{3})(?=\d)/g, "$1" + thousands) + (decimalCount ? decimal + Math.abs(amount - i).toFixed(decimalCount).slice(2) : "");
+                  } catch (e) {
+                    console.log(e)
+                  }
+            },
+
             populateUi: function () {
                 var totals = quote.getTotals()();
                 var grand_total;
@@ -56,7 +72,7 @@ define([
                 
                 grand_total = totals.grand_total;
                 for (var i=0;i<num_parcelas;i++){
-                    parcelas.push("Pagar em "+(i+1)+" vezes de "+(grand_total/(i+1)));
+                    parcelas.push("Pagar em "+(i+1)+" vezes de R$ "+this.formatMoney((grand_total/(i+1))));
                 }
 
                 this.userActions = ko.observableArray(
@@ -88,7 +104,7 @@ define([
             },
 
             getCode: function() {
-                return 'classyllama_llamacoin';
+                return 'Vexpro_GerminiPay';
             },
 
             isActive: function() {

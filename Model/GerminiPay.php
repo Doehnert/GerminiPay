@@ -1,10 +1,10 @@
 <?php
 
-namespace ClassyLlama\LlamaCoin\Model;
+namespace Vexpro\GerminiPay\Model;
 
-class LlamaCoin extends \Magento\Payment\Model\Method\Cc
+class GerminiPay extends \Magento\Payment\Model\Method\Cc
 {
-    const CODE = 'classyllama_llamacoin';
+    const CODE = 'Vexpro_GerminiPay';
 
     protected $_code = self::CODE;
 

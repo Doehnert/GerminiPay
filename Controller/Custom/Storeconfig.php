@@ -1,5 +1,5 @@
 <?php
-namespace ClassyLlama\LlamaCoin\Controller\Custom;
+namespace Vexpro\GerminiPay\Controller\Custom;
 
 class Storeconfig extends \Magento\Framework\App\Action\Action
 {
@@ -31,7 +31,7 @@ class Storeconfig extends \Magento\Framework\App\Action\Action
         $response = [];
         try {
             $configValue = $this->scopeConfig->getValue(
-                'payment/classyllama_llamacoin/parcelas',
+                'payment/Vexpro_GerminiPay/parcelas',
                 \Magento\Store\Model\ScopeInterface::SCOPE_STORE
             );
             $response = [

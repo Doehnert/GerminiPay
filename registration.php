@@ -1,6 +1,6 @@
 <?php
 \Magento\Framework\Component\ComponentRegistrar::register(
     \Magento\Framework\Component\ComponentRegistrar::MODULE,
-    'ClassyLlama_LlamaCoin',
+    'Vexpro_GerminiPay',
     __DIR__
 );

@@ -1,5 +1,5 @@
 <?php
-namespace ClassyLlama\LlamaCoin\Helper;
+namespace Vexpro\GerminiPay\Helper;
 
 use Magento\Framework\App\Helper\AbstractHelper;
 use Magento\Store\Model\ScopeInterface;
@@ -17,6 +17,6 @@ class Data extends AbstractHelper
 
 	public function getGeneralConfig($code, $storeId = null)
 	{
-		return $this->getConfigValue(self::XML_PATH_HELLOWORLD .'classyllama_llamacoin/'. $code, $storeId);
+		return $this->getConfigValue(self::XML_PATH_HELLOWORLD .'Vexpro_GerminiPay/'. $code, $storeId);
 	}
 }

@@ -7,8 +7,8 @@ define([
 
         rendererList.push(
             {
-                type: 'classyllama_llamacoin',
-                component: 'ClassyLlama_LlamaCoin/js/view/payment/method-renderer/llamacoin'
+                type: 'Vexpro_GerminiPay',
+                component: 'Vexpro_GerminiPay/js/view/payment/method-renderer/germinipay'
             }
         );
 

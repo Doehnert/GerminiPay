@@ -3,13 +3,13 @@
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Store:etc/config.xsd">
     <default>
         <payment>
-            <classyllama_llamacoin>
-                <title>Llama Coin</title>
-                <model>ClassyLlama\LlamaCoin\Model\LlamaCoin</model>
+            <Vexpro_GerminiPay>
+                <title>Germini Pay</title>
+                <model>Vexpro\GerminiPay\Model\GerminiPay</model>
                 <active>1</active>
                 <cctypes>AE,VI,MC,DI</cctypes>
                 <parcelas>12</parcelas>
-            </classyllama_llamacoin>
+            </Vexpro_GerminiPay>
         </payment>
     </default>
 </config>

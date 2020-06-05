@@ -2,7 +2,7 @@
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:App/etc/routes.xsd">
     <router id="standard">
         <route id="configuracao" frontName="configuracao">
-            <module name="ClassyLlama_LlamaCoin" />
+            <module name="Vexpro_GerminiPay" />
         </route>
     </router>
 </config>

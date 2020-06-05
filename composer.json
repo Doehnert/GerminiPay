@@ -1,12 +1,12 @@
 {
-    "name": "classyllama/llamacoin",
+    "name": "vexpro/germinipay",
     "description": "Payment integration with Germini",
     "type": "magento2-module",
     "version": "1.0.0",
     "autoload": {
         "files": [ "registration.php" ],
         "psr-4": {
-            "ClassyLlama\\LlamaCoin\\": ""
+            "Vexpro\\GerminiPay\\": ""
         }
     }
 }

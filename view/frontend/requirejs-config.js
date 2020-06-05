@@ -1,8 +1,8 @@
 var config = {
     "map": {
       "*": {
-        "hello":"ClassyLlama_LlamaCoin/js/hello",
-        "jquery.mask":"ClassyLlama_LlamaCoin/js/jquery.mask",
+        "hello":"Vexpro_GerminiPay/js/hello",
+        "jquery.mask":"Vexpro_GerminiPay/js/jquery.mask",
       }
     }
   };

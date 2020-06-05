@@ -2,7 +2,7 @@
     <type name="Magento\Payment\Model\CcGenericConfigProvider">
         <arguments>
             <argument name="methodCodes" xsi:type="array">
-                <item name="classyllama_llamacoin" xsi:type="const">ClassyLlama\LlamaCoin\Model\LlamaCoin::CODE</item>
+                <item name="Vexpro_GerminiPay" xsi:type="const">Vexpro\GerminiPay\Model\GerminiPay::CODE</item>
             </argument>
         </arguments>
     </type>

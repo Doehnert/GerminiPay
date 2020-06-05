@@ -23,10 +23,10 @@
                                                         <item name="renders" xsi:type="array">
                                                             <!-- merge payment method renders here -->
                                                             <item name="children" xsi:type="array">
-                                                                <item name="llamacoin" xsi:type="array">
-                                                                    <item name="component" xsi:type="string">ClassyLlama_LlamaCoin/js/view/payment/llamacoin</item>
+                                                                <item name="GerminiPay" xsi:type="array">
+                                                                    <item name="component" xsi:type="string">Vexpro_GerminiPay/js/view/payment/germinipay</item>
                                                                     <item name="methods" xsi:type="array">
-                                                                        <item name="classyllama_llamacoin" xsi:type="array">
+                                                                        <item name="Vexpro_GerminiPay" xsi:type="array">
                                                                             <item name="isBillingAddressRequired" xsi:type="boolean">true</item>
                                                                         </item>
                                                                     </item>
