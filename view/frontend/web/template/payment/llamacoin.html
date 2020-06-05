@@ -86,12 +86,11 @@
                                         valueUpdate: 'keyup' "/>
                     </div>
                 </div>
+                
                 <div class="field date required" data-bind="attr: {id: getCode() + '_cc_type_exp_div'}">
                     <label data-bind="attr: {for: getCode() + '_expiration'}" class="label">
                         <span><!-- ko i18n: 'Expiration Date'--><!-- /ko --></span>
                     </label>
-
-              
 
 
                     <div class="control">
@@ -111,9 +110,6 @@
                                 </div>
                             </div>
 
-                    <label data-bind="attr: {for: getCode() + '_expiration_yr'}" class="label">
-                        <span><!-- ko i18n: 'Ano de expiração'--><!-- /ko --></span>
-                    </label>      
                             <div class="field no-label year">
                                 <div class="control">
                                     <select name="payment[cc_exp_year]"
@@ -162,7 +158,7 @@
                     </div>
                 </div>
 
-                <div class="field">
+                <div class="field required">
                     <label for: "parcelas" class="label">Parcelas</label>
                     <div class="control">
 
@@ -171,17 +167,17 @@
                     </div>
                 </div>                
 
-                <div class="field">
+                <div class="field number required">
                     <label for: "cpf" class="label">Informe o cpf ou cnpj</label>
                     <div class="control">
-                        <input style="width: 100%" id="cpf" name="cpf" required class="text" placeholder= "00000000000" >
+                        <input style="width: 100%" id="cpf" name="cpf" required class="input-text" placeholder= "00000000000" >
                     </div>
                 </div>
 
-                <div class="field">
+                <div class="field required">
                     <label for: "nome" class="label">Nome do titular</label>
                     <div class="control">
-                        <input style="width: 100%" id="nome" name="nome" required class="text" placeholder= "......" >
+                        <input style="width: 100%" id="nome" name="nome" required class="input-text" placeholder= "......" >
                     </div>
                 </div>
 
