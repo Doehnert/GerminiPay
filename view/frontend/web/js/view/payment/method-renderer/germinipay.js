@@ -5,9 +5,10 @@ define([
         'ko',
         'Magento_Checkout/js/model/quote',
         'mage/storage',
-        'mage/url'
+        'mage/url',
+        'Magento_Catalog/js/price-utils'
     ],
-    function ($, Component, Validatorm, ko, quote, storage, url) {
+    function ($, Component, Validatorm, ko, quote, storage, url, priceUtils) {
         'use strict';
 
         return Component.extend({
@@ -17,40 +18,8 @@ define([
             },
 
             initialize: function() {
-                // this.getInstructions();
                 this._super();
-                
                 this.populateUi();
-            },
-
-            // getInstructions: function() {
-            //     var serviceUrl = url.build('configuracao/custom/storeconfig');
-
-            //     jQuery.ajax({
-            //         url: serviceUrl,
-            //         type: "GET",
-            //         async: false,
-            //         success: function(response){
-            //             console.log(response.value);
-            //             this.num_parcelas = response.value;
-            //         }
-            //     });
-            // },
-
-            formatMoney: function(amount, decimalCount = 2, decimal = ".", thousands = ","){
-                try {
-                    decimalCount = Math.abs(decimalCount);
-                    decimalCount = isNaN(decimalCount) ? 2 : decimalCount;
-                
-                    const negativeSign = amount < 0 ? "-" : "";
-                
-                    let i = parseInt(amount = Math.abs(Number(amount) || 0).toFixed(decimalCount)).toString();
-                    let j = (i.length > 3) ? i.length % 3 : 0;
-                
-                    return negativeSign + (j ? i.substr(0, j) + thousands : '') + i.substr(j).replace(/(\d{3})(?=\d)/g, "$1" + thousands) + (decimalCount ? decimal + Math.abs(amount - i).toFixed(decimalCount).slice(2) : "");
-                  } catch (e) {
-                    console.log(e)
-                  }
             },
 
             populateUi: function () {
@@ -69,10 +38,20 @@ define([
                         num_parcelas = response.value;
                     }
                 });
+
+                var priceFormat = {
+                    decimalSymbol: '.',
+                    groupLength: 3,
+                    groupSymbol: ",",
+                    integerRequired: false,
+                    pattern: "$%s",
+                    precision: 2,
+                    requiredPrecision: 2
+                };
                 
                 grand_total = totals.grand_total;
                 for (var i=0;i<num_parcelas;i++){
-                    parcelas.push("Pagar em "+(i+1)+" vezes de R$ "+this.formatMoney((grand_total/(i+1))));
+                    parcelas.push("Pagar em "+(i+1)+" vezes de "+priceUtils.formatPrice((grand_total/(i+1)), priceFormat));
                 }
 
                 this.userActions = ko.observableArray(
