@@ -14,7 +14,8 @@ define([
         return Component.extend({
             defaults: {
                 template: 'Vexpro_GerminiPay/payment/germinipay',
-                num_parcelas: 5
+                num_parcelas: 5,
+                token: 'abc666'
             },
 
             initialize: function() {
@@ -22,7 +23,13 @@ define([
                 this.populateUi();
             },
 
+            // placeOrder: function() {
+
+
+            // },
+
             populateUi: function () {
+                console.log('populateUi');
                 var totals = quote.getTotals()();
                 var grand_total;
                 var parcelas = [];
@@ -61,6 +68,8 @@ define([
             },
 
             getData: function () {
+                console.log('getData');
+                console.log(this.token)
                 var data = {
                     'method': this.getCode(),
                     'additional_data': {
@@ -71,7 +80,8 @@ define([
                         'cc_number': this.creditCardNumber(),
                         'cpf': $('#cpf').val(),
                         'nome': $('#nome').val(),
-                        'parcelas': $('#parcelas').val()
+                        'parcelas': $('#parcelas').val(),
+                        'token': this.token
                     }
                 };
 
@@ -83,6 +93,9 @@ define([
             },
 
             getCode: function() {
+                this.num_parcelas = 989;
+                //this.token = 'socorro';
+                console.log(this.num_parcelas);
                 return 'Vexpro_GerminiPay';
             },
 
@@ -91,8 +104,27 @@ define([
             },
 
             validate: function() {
+                console.log('validate');
                 var $form = $('#' + this.getCode() + '-form');
-                return $form.validation() && $form.validation('isValid');
+
+                console.log('pega token cartao');
+                var serviceUrl = url.build('configuracao/custom/mocktoken');
+                var meutoken;
+
+                if ($form.validation() && $form.validation('isValid')){
+                    jQuery.ajax({
+                        url: serviceUrl,
+                        type: "GET",
+                        async: false,
+                        success: function(response){
+                            meutoken = response.token;
+                        }
+                    });
+                    this.token = meutoken;
+                    return true;
+                } else {
+                    return false;
+                }
             }
 
         });

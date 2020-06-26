@@ -1,5 +1,7 @@
 <?php
 
+use Magento\Store\Model\ScopeInterface;
+
 namespace Vexpro\GerminiPay\Model;
 
 class GerminiPay extends \Magento\Payment\Model\Method\Cc
@@ -10,6 +12,15 @@ class GerminiPay extends \Magento\Payment\Model\Method\Cc
 
     protected $_canAuthorize = true;
     protected $_canCapture = true;
+
+    protected $scopeConfig;
+
+    public function __construct(
+        \Magento\Framework\App\Config\ScopeConfigInterface $scopeConfig
+    )
+    {
+        $this->scopeConfig = $scopeConfig;
+    }    
 
     /**
      * Set value after save payment from post data to use in case capture or authorize
@@ -34,6 +45,7 @@ class GerminiPay extends \Magento\Payment\Model\Method\Cc
      */
     public function capture(\Magento\Payment\Model\InfoInterface $payment, $amount)
     {
+        $url_esitef = $this->scopeConfig->getValue('acessos/general/esitef_url', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
         try {
             //check if payment has been authorized
             if(is_null($payment->getParentTransactionId())) {
@@ -75,6 +87,7 @@ class GerminiPay extends \Magento\Payment\Model\Method\Cc
             $cpf = $payment->getAdditionalInformation('post_data_value')['additional_data']['cpf'];
             $nome = $payment->getAdditionalInformation('post_data_value')['additional_data']['nome'];
             $parcelas = $payment->getAdditionalInformation('post_data_value')['additional_data']['parcelas'];
+            $token = $payment->getAdditionalInformation('post_data_value')['additional_data']['token'];
 
             $ccNumber = $payment->getCcNumber();
 

@@ -9,6 +9,7 @@
                 <active>1</active>
                 <cctypes>AE,VI,MC,DI</cctypes>
                 <parcelas>12</parcelas>
+                <esitef_url>https://esitef-homologacao.softwareexpress.com.br/e-sitef/api/v1/transactions</esitef_url>
             </Vexpro_GerminiPay>
         </payment>
     </default>
