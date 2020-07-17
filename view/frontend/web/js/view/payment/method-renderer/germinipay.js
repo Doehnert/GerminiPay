@@ -6,16 +6,22 @@ define([
         'Magento_Checkout/js/model/quote',
         'mage/storage',
         'mage/url',
-        'Magento_Catalog/js/price-utils'
+        'Magento_Catalog/js/price-utils',
+        'moment'
     ],
-    function ($, Component, Validatorm, ko, quote, storage, url, priceUtils) {
+    function ($, Component, Validatorm, ko, quote, storage, url, priceUtils, moment) {
         'use strict';
 
         return Component.extend({
             defaults: {
                 template: 'Vexpro_GerminiPay/payment/germinipay',
                 num_parcelas: 5,
-                token: 'abc666'
+                token: 'abc666',
+                merchant_id: '123',
+                merchant_key: '567',
+                esitef_url: '',
+                order_id: 0,
+                customer_id: 0
             },
 
             initialize: function() {
@@ -24,16 +30,18 @@ define([
             },
 
             // placeOrder: function() {
-
-
             // },
 
             populateUi: function () {
                 console.log('populateUi');
                 var totals = quote.getTotals()();
+                console.log(quote);
                 var grand_total;
                 var parcelas = [];
                 var num_parcelas;
+                var merchant_id;
+                var merchant_key;
+                var esitef_url;
 
                 var serviceUrl = url.build('configuracao/custom/storeconfig');
 
@@ -43,8 +51,15 @@ define([
                     async: false,
                     success: function(response){
                         num_parcelas = response.value;
+                        merchant_id = response.merchant_id;
+                        merchant_key = response.merchant_key;
+                        esitef_url = response.esitef_url;
                     }
                 });
+                this.num_parcelas = num_parcelas;
+                this.merchant_id = merchant_id;
+                this.merchant_key = merchant_key;
+                this.esitef_url = esitef_url;
 
                 var priceFormat = {
                     decimalSymbol: '.',
@@ -93,9 +108,9 @@ define([
             },
 
             getCode: function() {
-                this.num_parcelas = 989;
+                //this.num_parcelas = 989;
                 //this.token = 'socorro';
-                console.log(this.num_parcelas);
+                //console.log(this.num_parcelas);
                 return 'Vexpro_GerminiPay';
             },
 
@@ -103,24 +118,81 @@ define([
                 return true;
             },
 
-            validate: function() {
-                console.log('validate');
-                var $form = $('#' + this.getCode() + '-form');
+            getAuthorizerCode: function(authorizer){
+                var code = new Object();
+                code['AE'] = 3;
+                code['VI'] = 1;
+                code['MC'] = 2;
+                code['DI'] = 44;
+                code['JCB'] = 43;
+                code['DN'] = 33;
 
-                console.log('pega token cartao');
-                var serviceUrl = url.build('configuracao/custom/mocktoken');
+                if(authorizer in code){
+                    return code[authorizer]
+                } else {
+                    return false;
+                }
+            },
+
+            getToken: function(){
+                // Envia informações do cartão de crédito e recebe
+                // o token correspondente
+                var ed = new Date(this.creditCardExpYear(), this.creditCardExpMonth()-1, '01');
+                var expdate = moment(ed).format('MMYY');
+                //var serviceUrl = url.build('configuracao/custom/mocktoken');
+                var serviceUrl = 'https://cors-anywhere.herokuapp.com/' + this.esitef_url + '/cards';
                 var meutoken;
+                var authorizer_code;
 
+                console.log(expdate);
+                authorizer_code = this.getAuthorizerCode(this.creditCardType());
+                console.log("URL - " + serviceUrl + " merchant_id = " + this.merchant_id + " merchant_key = " + this.merchant_key);
+
+                // console.log("Enviando: expiry_date=" + expdate + " number=" + this.creditCardNumber() + " authorizer_id=" + authorizer_code);
+
+                $.ajax({
+                    url: serviceUrl,
+                    headers: {
+                        'merchant_id':this.merchant_id,
+                        'merchant_key':this.merchant_key,
+                        'Content-Type':'application/json'
+                    },
+                    type: "POST",
+                    dataType:"json",
+                    crossDomain: true,
+                    beforeSend: function(request) {
+                        request.setRequestHeader("Content-Type", "application/json");
+                        request.setRequestHeader("merchant_id", this.merchant_id);
+                        request.setRequestHeader("merchant_key", this.merchant_key);
+                    },
+                    async: false,
+                    data:{
+                        "card":{
+                            "expiry_date":expdate,
+                            "number":this.creditCardNumber(),
+                            },
+                            "authorizer_id":this.creditCardType(),
+                            "merchant_usn":"16013439434",
+                            "customer_id":"11122211122"
+                    },
+                    contentType: "application/json",
+                    success: function(response){
+                        console.log("Resposta = " + response);
+                        meutoken = response.token;
+                    },
+                    error: function (xhr, status) {
+                        alert("error");
+                    }
+                });
+                this.token = meutoken;
+                console.log('Token recebido = ' + this.token);
+            },
+
+            validate: function() {
+                console.log('pega token cartao !');
+                var $form = $('#' + this.getCode() + '-form');
                 if ($form.validation() && $form.validation('isValid')){
-                    jQuery.ajax({
-                        url: serviceUrl,
-                        type: "GET",
-                        async: false,
-                        success: function(response){
-                            meutoken = response.token;
-                        }
-                    });
-                    this.token = meutoken;
+                    this.getToken();
                     return true;
                 } else {
                     return false;

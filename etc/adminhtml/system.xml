@@ -23,7 +23,17 @@
                 <field id="esitef_url" translate="label" type="text" sortOrder="1" showInDefault="1" showInWebsite="0" showInStore="0">
                     <label>e-SiTef Url</label>
                     <comment>URL pagamentos e-SiTef.</comment>
-                </field>                
+                </field>
+
+                <field id="merchant_id" translate="label" type="text" sortOrder="1" showInDefault="1" showInWebsite="0" showInStore="0">
+                    <label>merchant_id</label>
+                    <comment>merchant_id.</comment>
+                </field>
+
+                <field id="merchant_key" translate="label" type="text" sortOrder="1" showInDefault="1" showInWebsite="0" showInStore="0">
+                    <label>merchant_key</label>
+                    <comment>merchant_key.</comment>
+                </field>                                
 
             </group>
         </section>
