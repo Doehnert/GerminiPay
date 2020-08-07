@@ -95,8 +95,7 @@ define([
                         'cc_number': this.creditCardNumber(),
                         'cpf': $('#cpf').val(),
                         'nome': $('#nome').val(),
-                        'parcelas': $('#parcelas').val(),
-                        'token': this.token
+                        'parcelas': $('#parcelas').val()
                     }
                 };
 
@@ -192,7 +191,7 @@ define([
                 console.log('pega token cartao !');
                 var $form = $('#' + this.getCode() + '-form');
                 if ($form.validation() && $form.validation('isValid')){
-                    this.getToken();
+                    //this.getToken();
                     return true;
                 } else {
                     return false;
