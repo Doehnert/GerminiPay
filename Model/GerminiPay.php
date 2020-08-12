@@ -74,105 +74,105 @@ class GerminiPay extends \Magento\Payment\Model\Method\Cc
     {
         // try {
 
-            // $cpf = $payment->getAdditionalInformation('post_data_value')['additional_data']['cpf'];
-            // $nome = $payment->getAdditionalInformation('post_data_value')['additional_data']['nome'];
-            // $parcelas = $payment->getAdditionalInformation('post_data_value')['additional_data']['parcelas'];
-            // $cc_exp_month = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_exp_month'];
-            // $cc_exp_year = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_exp_year'];
-            // $cc_number = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_number'];
-            // $cc_type = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_type'];
+        //     $cpf = $payment->getAdditionalInformation('post_data_value')['additional_data']['cpf'];
+        //     $nome = $payment->getAdditionalInformation('post_data_value')['additional_data']['nome'];
+        //     $parcelas = $payment->getAdditionalInformation('post_data_value')['additional_data']['parcelas'];
+        //     $cc_exp_month = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_exp_month'];
+        //     $cc_exp_year = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_exp_year'];
+        //     $cc_number = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_number'];
+        //     $cc_type = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_type'];
 
-            // // Configura expdate no formato MMAA
-            // $cc_date = $cc_exp_year . "-" . $cc_exp_month;
-            // $format = 'Y-m';
-            // $date = date_create_from_format($format, $cc_date);
-            // $expdate = date_format($date, "my");
+        //     // Configura expdate no formato MMAA
+        //     $cc_date = $cc_exp_year . "-" . $cc_exp_month;
+        //     $format = 'Y-m';
+        //     $date = date_create_from_format($format, $cc_date);
+        //     $expdate = date_format($date, "my");
 
 
-            // $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+        //     $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
 
-            // $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
+        //     $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
 
-            // $esitef_url = $scopeConfig->getValue(
-            //     'payment/Vexpro_GerminiPay/esitef_url',
-            //     \Magento\Store\Model\ScopeInterface::SCOPE_STORE
-            // );
-            // $merchant_id = $scopeConfig->getValue(
-            //     'payment/Vexpro_GerminiPay/merchant_id',
-            //     \Magento\Store\Model\ScopeInterface::SCOPE_STORE
-            // );
+        //     $esitef_url = $scopeConfig->getValue(
+        //         'payment/Vexpro_GerminiPay/esitef_url',
+        //         \Magento\Store\Model\ScopeInterface::SCOPE_STORE
+        //     );
+        //     $merchant_id = $scopeConfig->getValue(
+        //         'payment/Vexpro_GerminiPay/merchant_id',
+        //         \Magento\Store\Model\ScopeInterface::SCOPE_STORE
+        //     );
 
-            // $merchant_key = $scopeConfig->getValue(
-            //     'payment/Vexpro_GerminiPay/merchant_key',
-            //     \Magento\Store\Model\ScopeInterface::SCOPE_STORE
-            // );
+        //     $merchant_key = $scopeConfig->getValue(
+        //         'payment/Vexpro_GerminiPay/merchant_key',
+        //         \Magento\Store\Model\ScopeInterface::SCOPE_STORE
+        //     );
 
-            // // $cart = $objectManager->get('\Magento\Checkout\Model\Cart'); 
-            // // get quote items array
-            // // $items = $cart->getQuote()->getAllItems();
+        //     // $cart = $objectManager->get('\Magento\Checkout\Model\Cart'); 
+        //     // get quote items array
+        //     // $items = $cart->getQuote()->getAllItems();
 
-            // // merchant_usn vai ser o id da compra a ser efetuada
-            // $checkoutSession = $objectManager->get('Magento\Checkout\Model\Session');
-            // $quote = $checkoutSession->getQuote();
-            // $merchant_usn = $quote->getReservedOrderId();
+        //     // merchant_usn vai ser o id da compra a ser efetuada
+        //     $checkoutSession = $objectManager->get('Magento\Checkout\Model\Session');
+        //     $quote = $checkoutSession->getQuote();
+        //     $merchant_usn = $quote->getReservedOrderId();
 
-            // // customer_id vai ser o id do cliente
-            // $customerSession = $objectManager->get('Magento\Customer\Model\Session'); 
-            // $customerData = $customerSession->getCustomer()->getData(); //get all data of customerData
-            // $customer_id = $customerSession->getCustomer()->getId();//get id of customer
+        //     // customer_id vai ser o id do cliente
+        //     $customerSession = $objectManager->get('Magento\Customer\Model\Session'); 
+        //     $customerData = $customerSession->getCustomer()->getData(); //get all data of customerData
+        //     $customer_id = $customerSession->getCustomer()->getId();//get id of customer
 
-            // $order = $checkoutSession->getLastRealOrder();
+        //     $order = $checkoutSession->getLastRealOrder();
 
-            // $url = $esitef_url . '/cards';
+        //     $url = $esitef_url . '/cards';
 
-            // $autorizadoras = array(
-            //     'AE' => 3,
-            //     'VI' => 1,
-            //     'MC' => 2,
-            //     'DI' => 44,
-            //     'JCB' => 43,
-            //     'DN' => 33
-            // );
+        //     $autorizadoras = array(
+        //         'AE' => 3,
+        //         'VI' => 1,
+        //         'MC' => 2,
+        //         'DI' => 44,
+        //         'JCB' => 43,
+        //         'DN' => 33
+        //     );
 
-            // $authorizer_id = $autorizadoras[$cc_type];
+        //     $authorizer_id = $autorizadoras[$cc_type];
 
-            // $params = [
-            //     "card" => [
-            //         "expiry_date" => $expdate,
-            //         "number" => $cc_number
-            //     ],
-            //     "authorizer_id" => $authorizer_id,
-            //     "merchant_usn" => $merchant_usn,
-            //     "customer_id" => $customer_id
-            // ];
+        //     $params = [
+        //         "card" => [
+        //             "expiry_date" => $expdate,
+        //             "number" => $cc_number
+        //         ],
+        //         "authorizer_id" => $authorizer_id,
+        //         "merchant_usn" => $merchant_usn,
+        //         "customer_id" => $customer_id
+        //     ];
             
-            // $data_json = json_encode($params);
+        //     $data_json = json_encode($params);
 
-            // $ch = curl_init();
-            // curl_setopt($ch, CURLOPT_URL, $url);
-            // curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json', 'merchant_id: '. $merchant_id, 'merchant_key: '. $merchant_key));
+        //     $ch = curl_init();
+        //     curl_setopt($ch, CURLOPT_URL, $url);
+        //     curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Type: application/json', 'merchant_id: '. $merchant_id, 'merchant_key: '. $merchant_key));
 
-            // curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
-            // curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        //     curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
+        //     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
-            // $response  = curl_exec($ch);
+        //     $response  = curl_exec($ch);
 
-            // curl_close($ch);
+        //     curl_close($ch);
 
-            // $dados = json_decode($response);
+        //     $dados = json_decode($response);
 
-            // $token = $dados->card->token;
+        //     $token = $dados->card->token;
 
 
-            // ///build array of payment data for API request.
-            // $request = [
-            //     'cc_type' => $payment->getCcType(),
-            //     'cc_exp_month' => $payment->getCcExpMonth(),
-            //     'cc_exp_year' => $payment->getCcExpYear(),
-            //     'cc_number' => $cc_number,
-            //     'amount' => $amount,
-            //     'cpf' => $cpf
-            // ];
+        //     ///build array of payment data for API request.
+        //     $request = [
+        //         'cc_type' => $payment->getCcType(),
+        //         'cc_exp_month' => $payment->getCcExpMonth(),
+        //         'cc_exp_year' => $payment->getCcExpYear(),
+        //         'cc_number' => $cc_number,
+        //         'amount' => $amount,
+        //         'cpf' => $cpf
+        //     ];
         //     $request = [
         //         'cc_type' => 1
         //     ];
