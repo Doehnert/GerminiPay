@@ -1,9 +1,14 @@
 <?php
-use Magento\Store\Model\ScopeInterface;
 
 namespace Vexpro\GerminiPay\Model;
 
-class GerminiPay extends \Magento\Payment\Model\Method\Cc
+use Magento\Store\Model\ScopeInterface;
+use Magento\Quote\Api\Data\PaymentInterface;
+use Magento\Payment\Model\Method\AbstractMethod;
+use Magento\Payment\Model\Method\Cc;
+
+
+class GerminiPay extends AbstractMethod
 {
     const CODE = 'Vexpro_GerminiPay';
 
@@ -11,6 +16,9 @@ class GerminiPay extends \Magento\Payment\Model\Method\Cc
 
     protected $_canAuthorize = true;
     protected $_canCapture = true;
+
+    protected $nit;
+
 
     /**
      * Set value after save payment from post data to use in case capture or authorize
@@ -26,6 +34,8 @@ class GerminiPay extends \Magento\Payment\Model\Method\Cc
         return $this;
     }
 
+    // 7636
+
     /**
      * Capture Payment.
      *
@@ -35,30 +45,39 @@ class GerminiPay extends \Magento\Payment\Model\Method\Cc
      */
     public function capture(\Magento\Payment\Model\InfoInterface $payment, $amount)
     {
-        try
-        {
+        try {
             //check if payment has been authorized
-            if (is_null($payment->getParentTransactionId()))
-            {
+            if (is_null($payment->getParentTransactionId())) {
                 $this->authorize($payment, $amount);
             }
 
+            $cc_exp_month = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_exp_month'];
+            $cc_exp_year = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_exp_year'];
+            $cc_number = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_number'];
+            $cc_cid = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_cid'];
+
+            //     // Configura expdate no formato MMAA
+            $cc_date = $cc_exp_year . "-" . $cc_exp_month;
+            $format = 'Y-m';
+            $date = date_create_from_format($format, $cc_date);
+            $expdate = date_format($date, "my");
             //build array of payment data for API request.
-            $request = ['capture_amount' => $amount,
-            //any other fields, api key, etc.
+            $params = [
+                "card" => [
+                    "number" => $cc_number,
+                    "expiry_date" => $expdate,
+                    "security_code" => $cc_cid
+                ],
             ];
 
             //make API request to credit card processor.
-            $response = $this->makeCaptureRequest($request);
+            $response = $this->makeCaptureRequest($params);
 
             //todo handle response
             //transaction is done.
             $payment->setIsTransactionClosed(1);
-
-        }
-        catch(\Exception $e)
-        {
-            $this->debug($payment->getData() , $e->getMessage());
+        } catch (\Exception $e) {
+            $this->debug($e->getMessage());
         }
 
         return $this;
@@ -75,71 +94,80 @@ class GerminiPay extends \Magento\Payment\Model\Method\Cc
      */
     public function authorize(\Magento\Payment\Model\InfoInterface $payment, $amount)
     {
-        // try {
-        //     $cpf = $payment->getAdditionalInformation('post_data_value')['additional_data']['cpf'];
-        //     $nome = $payment->getAdditionalInformation('post_data_value')['additional_data']['nome'];
-        //     $parcelas = $payment->getAdditionalInformation('post_data_value')['additional_data']['parcelas'];
-        //     $cc_exp_month = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_exp_month'];
-        //     $cc_exp_year = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_exp_year'];
-        //     $cc_number = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_number'];
-        //     $cc_type = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_type'];
-        //     // Configura expdate no formato MMAA
-        //     $cc_date = $cc_exp_year . "-" . $cc_exp_month;
-        //     $format = 'Y-m';
-        //     $date = date_create_from_format($format, $cc_date);
-        //     $expdate = date_format($date, "my");
+        $cpf = $payment->getAdditionalInformation('post_data_value')['additional_data']['cpf'];
+        $nome = $payment->getAdditionalInformation('post_data_value')['additional_data']['nome'];
+        $parcelas = $payment->getAdditionalInformation('post_data_value')['additional_data']['parcelas'];
+        $cc_type = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_type'];
+
+        $autorizadoras = array(
+            'AE' => 3,
+            'VI' => 1,
+            'MC' => 2,
+            'DI' => 44,
+            'JCB' => 43,
+            'DN' => 33
+        );
+        $authorizer_id = $autorizadoras[$cc_type];
 
 
+        // 1) Criando a transação
+
+        try {
+            $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+            $checkoutSession = $objectManager->get('Magento\Checkout\Model\Session');
+            $quote = $checkoutSession->getQuote();
+            $merchant_usn = $quote->getReservedOrderId();
+            $params = [
+                "merchant_usn" => $merchant_usn,
+                "order_id" => $merchant_usn,
+                "installments" => "1",
+                "installment_type" => "4",
+                "authorizer_id" => $authorizer_id,
+                "amount" => $amount * 1000,
+            ];
+
+            $response = $this->makeAuthRequest($params);
+        } catch (\Exception $e) {
+            $this->debug($e->getMessage());
+        }
+
+        if (isset($response['transactionID'])) {
+            // Successful auth request.
+            // Set the transaction id on the payment so the capture request knows auth has happened.
+            $payment->setTransactionId($response['transactionID']);
+            $payment->setParentTransactionId($response['transactionID']);
+        }
+
+        //processing is not done yet.
+        $payment->setIsTransactionClosed(0);
+
+        return $this;
+    }
+
+    /**
+     * Set the payment action to authorize_and_capture
+     *
+     * @return string
+     */
+    public function getConfigPaymentAction()
+    {
+        return self::ACTION_AUTHORIZE_CAPTURE;
+    }
+
+    /**
+     * Method to handle an API call for authorization request.
+     *
+     * @param $params
+     * @return array
+     * @throws \Magento\Framework\Exception\LocalizedException
+     */
+    public function makeAuthRequest($params)
+    {
         $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
-
         $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
-
         $esitef_url = $scopeConfig->getValue('payment/Vexpro_GerminiPay/esitef_url', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
         $merchant_id = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_id', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
-
         $merchant_key = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_key', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
-
-        //     // $cart = $objectManager->get('\Magento\Checkout\Model\Cart');
-        //     // get quote items array
-        //     // $items = $cart->getQuote()->getAllItems();
-        //     // merchant_usn vai ser o id da compra a ser efetuada
-        //merchant_usn: Número sequencial único para cada pedido, criado pela loja.
-        $checkoutSession = $objectManager->get('Magento\Checkout\Model\Session');
-        $quote = $checkoutSession->getQuote();
-        $merchant_usn = $quote->getReservedOrderId();
-
-        //     // customer_id vai ser o id do cliente
-        //     $customerSession = $objectManager->get('Magento\Customer\Model\Session');
-        //     $customerData = $customerSession->getCustomer()->getData(); //get all data of customerData
-        //     $customer_id = $customerSession->getCustomer()->getId();//get id of customer
-        //     $order = $checkoutSession->getLastRealOrder();
-        //     $url = $esitef_url . '/cards';
-        //     $autorizadoras = array(
-        //         'AE' => 3,
-        //         'VI' => 1,
-        //         'MC' => 2,
-        //         'DI' => 44,
-        //         'JCB' => 43,
-        //         'DN' => 33
-        //     );
-        //     $authorizer_id = $autorizadoras[$cc_type];
-        //     $params = [
-        //         "card" => [
-        //             "expiry_date" => $expdate,
-        //             "number" => $cc_number
-        //         ],
-        //         "authorizer_id" => $authorizer_id,
-        //         "merchant_usn" => $merchant_usn,
-        //         "customer_id" => $customer_id
-        //     ];
-        $params = [
-            "merchant_usn" => "12042142155",
-            "order_id" =>"12042142155",
-            "installments" => "1",
-            "installment_type" => "4",
-            "authorizer_id" => "2",
-            "amount" => "1",
-        ];
 
         $data_json = json_encode($params);
         $url = $esitef_url . '/transactions';
@@ -158,79 +186,10 @@ class GerminiPay extends \Magento\Payment\Model\Method\Cc
         curl_close($ch);
         $dados = json_decode($response);
         $nit = $dados->payment->nit;
-        //$token = $dados->card->token;
+        $this->nit = $nit;
 
-        return $this;
-
-
-        //     ///build array of payment data for API request.
-        //     $request = [
-        //         'cc_type' => $payment->getCcType(),
-        //         'cc_exp_month' => $payment->getCcExpMonth(),
-        //         'cc_exp_year' => $payment->getCcExpYear(),
-        //         'cc_number' => $cc_number,
-        //         'amount' => $amount,
-        //         'cpf' => $cpf
-        //     ];
-        //     $request = [
-        //         'cc_type' => 1
-        //     ];
-        //     //check if payment has been authorized
-        //     $response = $this->makeAuthRequest($request);
-        // } catch (\Exception $e) {
-        //     $this->debug($payment->getData(), $e->getMessage());
-        // }
-        // try
-        // {
-        //     //build array of payment data for API request.
-        //     $request = ['cc_type' => $payment->getCcType() , 'cc_exp_month' => $payment->getCcExpMonth() , 'cc_exp_year' => $payment->getCcExpYear() , 'cc_number' => $payment->getCcNumberEnc() , 'amount' => $amount];
-
-        //     //check if payment has been authorized
-        //     $response = $this->makeAuthRequest($request);
-
-        // }
-        // catch(\Exception $e)
-        // {
-        //     $this->debug($payment->getData() , $e->getMessage());
-        // }
-
-        // if (isset($response['transactionID']))
-        // {
-        //     // Successful auth request.
-        //     // Set the transaction id on the payment so the capture request knows auth has happened.
-        //     $payment->setTransactionId($response['transactionID']);
-        //     $payment->setParentTransactionId($response['transactionID']);
-        // }
-
-        // //processing is not done yet.
-        // $payment->setIsTransactionClosed(0);
-
-        // return $this;
-    }
-
-    /**
-     * Set the payment action to authorize_and_capture
-     *
-     * @return string
-     */
-    public function getConfigPaymentAction()
-    {
-        return self::ACTION_AUTHORIZE_CAPTURE;
-    }
-
-    /**
-     * Test method to handle an API call for authorization request.
-     * TODO: Communicate with the Germini API to get a payment request
-     *
-     * @param $request
-     * @return array
-     * @throws \Magento\Framework\Exception\LocalizedException
-     */
-    public function makeAuthRequest($request)
-    {
-        $response = ['transactionId' => 123]; //todo implement API call for auth request.
-        if (!$response)
-        {
+        $response = ['transactionId' => $nit]; //todo implement API call for auth request.
+        if (!$response) {
             throw new \Magento\Framework\Exception\LocalizedException(__('Failed auth request.'));
         }
 
@@ -244,15 +203,39 @@ class GerminiPay extends \Magento\Payment\Model\Method\Cc
      * @return array
      * @throws \Magento\Framework\Exception\LocalizedException
      */
-    public function makeCaptureRequest($request)
+    public function makeCaptureRequest($params)
     {
-        $response = ['success']; //todo implement API call for capture request.
-        if (!$response)
-        {
-            throw new \Magento\Framework\Exception\LocalizedException(__('Failed capture request.'));
-        }
+        $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+        $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
+        $esitef_url = $scopeConfig->getValue('payment/Vexpro_GerminiPay/esitef_url', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+        $merchant_id = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_id', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+        $merchant_key = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_key', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+        // 2) Efetuando o pagamento
+        try {
+            $data_json = json_encode($params);
+            $url = "{$esitef_url}/payments/{$this->nit}";
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+                'Content-Type: application/json',
+                'merchant_id: ' . $merchant_id,
+                'merchant_key: ' . $merchant_key
+            ));
 
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+            $response  = curl_exec($ch);
+            curl_close($ch);
+            $dados = json_decode($response);
+            $response = ['success'];
+            if (!$response) {
+                throw new \Magento\Framework\Exception\LocalizedException(__('Failed capture request.'));
+            }
+        } catch (\Exception $e) {
+            $this->debug($e->getMessage());
+            $response = ['fail'];
+        }
         return $response;
     }
 }
-
