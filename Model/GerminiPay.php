@@ -120,7 +120,7 @@ class GerminiPay extends AbstractMethod
             $params = [
                 "merchant_usn" => $merchant_usn,
                 "order_id" => $merchant_usn,
-                "installments" => "1",
+                "installments" => $parcelas,
                 "installment_type" => "4",
                 "authorizer_id" => $authorizer_id,
                 "amount" => $amount * 1000,

@@ -1,29 +1,28 @@
-<?php 
+<?php
 $order = $block->getOrder();
 ?>
 <div class="checkout-success">
-<?php if($order->getIncrementId()):?>
-    <?php if ($block->getCustomerId()){?>
+    <?php if ($order->getIncrementId()) : ?>
+        <?php if ($block->getCustomerId()) { ?>
 
-    <div style="color:orange; text-align:center; font-size: 25px;">Estamos processando o pagamento</div>
+            <div style="color:orange; text-align:center; font-size: 25px;">Estamos processando o pagamento</div>
 
 
-    <div style="color:blue; font-size: 20px;">Informações sobre o pagamento</div>
+            <div style="color:blue; font-size: 20px;">Informações sobre o pagamento</div>
 
-    <div>Número da compra: <?php echo $order->getIncrementId(); ?></div>
-    <div>Número do cartão: <?php echo $order->getCreditCardNumber(); ?></div>
-    
-    <?php
-    
-        echo "<p>";
-        echo 'Your order number is: '.$order->getIncrementId();
-        echo "</p>";
-    } else {
-        echo "<p>";
-        echo 'Your order # is: <span>%1</span>.',$order->getIncrementId();
-        echo "</p>";
-    }
-    ?>
+            <div>Número da compra: <?php echo $order->getIncrementId(); ?></div>
+
+        <?php
+
+            echo "<p>";
+            echo 'Your order number is: ' . $order->getIncrementId();
+            echo "</p>";
+        } else {
+            echo "<p>";
+            echo 'Your order # is: <span>%1</span>.', $order->getIncrementId();
+            echo "</p>";
+        }
+        ?>
         <p><?php echo __('We\'ll email you an order confirmation with details and tracking info.') ?></p>
-<?php endif;?>
+    <?php endif; ?>
 </div>

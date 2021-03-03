@@ -25,7 +25,7 @@
 
         <!-- Render the native credit card form. -->
         <form class="form" data-bind="attr: {'id': getCode() + '-form'}" data-mage-init='{"validation":{}}' id="Vexpro_GerminiPay-form">
-            
+
 
             <!--
             /**
@@ -70,10 +70,10 @@
                 </div>
                 <div class="field number required">
                     <label data-bind="attr: {for: getCode() + '_cc_number'}" class="label">
-                        <span><!-- ko i18n: 'Credit Card Number'--><!-- /ko --></span>
+                        <span><!-- ko i18n: 'Número do cartão de crédito'--><!-- /ko --></span>
                     </label>
                     <div class="control">
-                        <input style="width: 100%" type="number" name="payment[cc_number]" class="input-text" value=""
+                        <input style="width: 50%" type="number" name="payment[cc_number]" class="input-text" value=""
                             data-bind="attr: {
                                                 autocomplete: off,
                                                 id: getCode() + '_cc_number',
@@ -85,7 +85,7 @@
                                         valueUpdate: 'keyup' "/>
                     </div>
                 </div>
-                
+
                 <div class="field date required" data-bind="attr: {id: getCode() + '_cc_type_exp_div'}">
                     <label data-bind="attr: {for: getCode() + '_expiration'}" class="label">
                         <span><!-- ko i18n: 'Mês do Vencimento'--><!-- /ko --></span>
@@ -132,8 +132,8 @@
                                                     optionsText: 'year',
                                                     optionsCaption: $t('Year'),
                                                     value: creditCardExpYear">
-                                    </select>   
-                                </div>                                
+                                    </select>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -141,7 +141,7 @@
                 <!-- ko if: (hasVerification())-->
                 <div class="field cvv required" data-bind="attr: {id: getCode() + '_cc_type_cvv_div'}">
                     <label data-bind="attr: {for: getCode() + '_cc_cid'}" class="label">
-                        <span><!-- ko i18n: 'Card Verification Number'--><!-- /ko --></span>
+                        <span><!-- ko i18n: 'Código de verificação'--><!-- /ko --></span>
                     </label>
                     <div class="control _with-tooltip">
                         <input type="number"
@@ -173,22 +173,34 @@
                     <label for: "parcelas" class="label">Parcelas</label>
                     <div class="control">
 
-                        <select data-bind="options: userActions, value: selectedAction" id="parcelas" name="parcelas"></select>
-                        
+                        <select style="width: 50%" data-bind="options: parcelas,
+                        optionsText: function(item){
+                            return item.text
+                        },
+                        optionsValue: function(item){
+                            return item.name
+                        }
+                        "
+                         id="parcelas" name="parcelas"></select>
+
                     </div>
-                </div>                
+                </div>
 
                 <div class="field number required">
-                    <label for: "cpf" class="label">Informe o cpf ou cnpj</label>
+                    <label for: "cpf" class="label">
+                    <span>CPF ou CNPJ do titular</span>
+                    </label>
                     <div class="control">
-                        <input style="width: 100%" id="cpf" name="cpf" required class="input-text" placeholder= "" >
+                        <input style="width: 50%" type="text" id="cpf" name="cpf" required class="input-text" placeholder= "" >
                     </div>
                 </div>
 
                 <div class="field required">
-                    <label for: "nome" class="label">Nome do titular</label>
+                    <label for: "nome" class="label">
+                    Nome do titular
+                    </label>
                     <div class="control">
-                        <input style="width: 100%" id="nome" name="nome" required class="input-text" placeholder= "" >
+                        <input style="width: 50%" type="text" id="nome" name="nome" required class="input-text" placeholder= "" >
                     </div>
                 </div>
 

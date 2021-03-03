@@ -2,7 +2,7 @@
     <system>
         <section id="payment">
             <group id="Vexpro_GerminiPay" translate="label comment" type="text" sortOrder="50" showInDefault="1" showInWebsite="1" showInStore="1">
-                <label>Germini Pay</label>
+                <label>Pagar com cartão</label>
                 <field id="active" translate="label" type="select" sortOrder="1" showInDefault="1" showInWebsite="1" showInStore="0">
                     <label>Enabled</label>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
@@ -19,7 +19,7 @@
                     <label>Numero máximo de parcelas aceitas</label>
                     <comment>Numero máximo de parcelas aceitas</comment>
                 </field>
-                
+
                 <field id="esitef_url" translate="label" type="text" sortOrder="1" showInDefault="1" showInWebsite="0" showInStore="0">
                     <label>e-SiTef Url</label>
                     <comment>URL pagamentos e-SiTef.</comment>
@@ -33,7 +33,7 @@
                 <field id="merchant_key" translate="label" type="text" sortOrder="1" showInDefault="1" showInWebsite="0" showInStore="0">
                     <label>merchant_key</label>
                     <comment>merchant_key.</comment>
-                </field>                                
+                </field>
 
             </group>
         </section>
