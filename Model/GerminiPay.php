@@ -16,8 +16,14 @@ class GerminiPay extends AbstractMethod
 
     protected $_canAuthorize = true;
     protected $_canCapture = true;
+    protected $_canRefund = true;
+    protected $_isGateway = true;
+    protected $_canVoid = true;
+    protected $_canCancel = true;
 
     protected $nit;
+    protected $merchant_usn;
+    protected $sitef_usn;
 
 
     /**
@@ -73,7 +79,9 @@ class GerminiPay extends AbstractMethod
             //make API request to credit card processor.
             $response = $this->makeCaptureRequest($params);
 
-            //todo handle response
+            $order = $payment->getOrder();
+            $order->setSitefUsn($this->sitef_usn);
+
             //transaction is done.
             $payment->setIsTransactionClosed(1);
         } catch (\Exception $e) {
@@ -117,13 +125,14 @@ class GerminiPay extends AbstractMethod
             $checkoutSession = $objectManager->get('Magento\Checkout\Model\Session');
             $quote = $checkoutSession->getQuote();
             $merchant_usn = $quote->getReservedOrderId();
+            $this->merchant_usn = $merchant_usn;
             $params = [
                 "merchant_usn" => $merchant_usn,
                 "order_id" => $merchant_usn,
                 "installments" => $parcelas,
                 "installment_type" => "4",
                 "authorizer_id" => $authorizer_id,
-                "amount" => $amount * 1000,
+                "amount" => $amount * 100,
             ];
 
             $response = $this->makeAuthRequest($params);
@@ -131,11 +140,11 @@ class GerminiPay extends AbstractMethod
             $this->debug($e->getMessage());
         }
 
-        if (isset($response['transactionID'])) {
+        if (isset($response['transactionId'])) {
             // Successful auth request.
             // Set the transaction id on the payment so the capture request knows auth has happened.
-            $payment->setTransactionId($response['transactionID']);
-            $payment->setParentTransactionId($response['transactionID']);
+            $payment->setTransactionId($response['transactionId']);
+            $payment->setParentTransactionId($response['transactionId']);
         }
 
         //processing is not done yet.
@@ -228,6 +237,10 @@ class GerminiPay extends AbstractMethod
             $response  = curl_exec($ch);
             curl_close($ch);
             $dados = json_decode($response);
+
+            $sitef_usn = $dados->payment->sitef_usn;
+            $this->sitef_usn = $sitef_usn;
+
             $response = ['success'];
             if (!$response) {
                 throw new \Magento\Framework\Exception\LocalizedException(__('Failed capture request.'));
@@ -237,5 +250,96 @@ class GerminiPay extends AbstractMethod
             $response = ['fail'];
         }
         return $response;
+    }
+
+    /**
+     * Refund specified amount for payment
+     *
+     * @param \Magento\Framework\DataObject|InfoInterface $payment
+     * @param float $amount
+     * @return $this
+     * @throws \Magento\Framework\Exception\LocalizedException
+     * @api
+     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
+     */
+    public function refund(\Magento\Payment\Model\InfoInterface $payment, $amount)
+    {
+        if (!$this->canRefund()) {
+            throw new \Magento\Framework\Exception\LocalizedException(__('The refund action is not available.'));
+        }
+        $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+        $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
+        $esitef_url = $scopeConfig->getValue('payment/Vexpro_GerminiPay/esitef_url', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+        $merchant_id = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_id', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+        $merchant_key = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_key', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+
+        $sitef_usn = $order->getSitefUsn();
+
+        // 1) Criando a transação de cancelamento
+        $url = "{$esitef_url}/cancellations";
+
+        $params = [
+            "esitef_usn" => $sitef_usn,
+        ];
+
+        try {
+            $data_json = json_encode($params);
+            $url = "{$esitef_url}/payments/{$this->nit}";
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+                'Content-Type: application/json',
+                'merchant_id: ' . $merchant_id,
+                'merchant_key: ' . $merchant_key
+            ));
+
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+            $response  = curl_exec($ch);
+            curl_close($ch);
+            $dados = json_decode($response);
+
+            $nit = $dados->payment->nit;
+
+            // 2) Cancelando o pagamento
+            $url = "{$esitef_url}/cancellations/{$nit}";
+
+            // $params = [
+            //     "card" => [
+            //         "number" =>
+            //     ],
+            // ];
+
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+                'Content-Type: application/json',
+                'merchant_id: ' . $merchant_id,
+                'merchant_key: ' . $merchant_key
+            ));
+
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+            $response  = curl_exec($ch);
+            curl_close($ch);
+            $dados = json_decode($response);
+
+
+            $sitef_usn = $dados->payment->sitef_usn;
+            $this->sitef_usn = $sitef_usn;
+
+            $response = ['success'];
+            if (!$response) {
+                throw new \Magento\Framework\Exception\LocalizedException(__('Failed capture request.'));
+            }
+        } catch (\Exception $e) {
+            $this->debug($e->getMessage());
+            $response = ['fail'];
+        }
+
+
+        return $this;
     }
 }

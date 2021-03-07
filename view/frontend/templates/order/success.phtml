@@ -7,22 +7,17 @@ $order = $block->getOrder();
 
             <div style="color:orange; text-align:center; font-size: 25px;">Estamos processando o pagamento</div>
 
-
             <div style="color:blue; font-size: 20px;">Informações sobre o pagamento</div>
-
-            <div>Número da compra: <?php echo $order->getIncrementId(); ?></div>
-
         <?php
-
             echo "<p>";
-            echo 'Your order number is: ' . $order->getIncrementId();
+            echo 'Número da compra:: ' . $order->getIncrementId();
             echo "</p>";
         } else {
             echo "<p>";
-            echo 'Your order # is: <span>%1</span>.', $order->getIncrementId();
+            echo 'Sua compra # está: <span>%1</span>.', $order->getIncrementId();
             echo "</p>";
         }
         ?>
-        <p><?php echo __('We\'ll email you an order confirmation with details and tracking info.') ?></p>
+        <p><?php echo __('Iremos mandar um email com a confirmação da compra e detalhes do rastreamento.') ?></p>
     <?php endif; ?>
 </div>
