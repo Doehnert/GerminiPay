@@ -8,6 +8,8 @@ define([
 	'mage/url',
 	'Magento_Catalog/js/price-utils',
 	'moment',
+	'Magento_Checkout/js/model/totals',
+	'Magento_Customer/js/customer-data',
 ], function (
 	$,
 	Component,
@@ -18,10 +20,14 @@ define([
 	url,
 	priceUtils,
 	moment,
+	totals,
+	customerData,
 ) {
 	'use strict';
-
+	//quote.totals._latestValue.grand_total
+	var self;
 	return Component.extend({
+		myGrandTotal: 0,
 		defaults: {
 			template: 'Vexpro_GerminiPay/payment/germinipay',
 			num_parcelas: 5,
@@ -34,14 +40,19 @@ define([
 		},
 
 		initialize: function () {
+			self = this;
 			this._super();
 			this.populateUi();
 		},
 
+		getGrandTotal: function () {
+			if (totals.totals()) {
+				var grandTotal = parseFloat(totals.totals()['grand_total']);
+				return grandTotal;
+			}
+		},
+
 		populateUi: function () {
-			console.log('populateUi');
-			var totals = quote.getTotals()();
-			console.log(quote);
 			var grand_total;
 			var parcelas = [];
 			var num_parcelas;
@@ -82,31 +93,32 @@ define([
 				this.text = text;
 			};
 
-			grand_total = totals.grand_total;
-			for (var i = 0; i < num_parcelas; i++) {
-				parcelas.push(
-					new Parcela(
-						i + 1,
-						'Pagar em ' +
-							(i + 1) +
-							' vezes de ' +
-							priceUtils.formatPrice(grand_total / (i + 1), priceFormat),
-					),
-				);
-				// parcelas.push(
-				// 	'Pagar em ' +
-				// 		(i + 1) +
-				// 		' vezes de ' +
-				// 		priceUtils.formatPrice(grand_total / (i + 1), priceFormat),
-				// );
-			}
+			grand_total = this.myTotal();
 
-			this.parcelas = ko.observableArray(parcelas);
+			// this.parcelas = ko.observableArray(parcelas);
+			this.parcelas = ko.computed(function () {
+				parcelas = [];
+				for (var i = 0; i < num_parcelas; i++) {
+					parcelas.push(
+						new Parcela(
+							i + 1,
+							'Pagar em ' +
+								(i + 1) +
+								' vezes de ' +
+								priceUtils.formatPrice(self.myTotal() / (i + 1), priceFormat),
+						),
+					);
+				}
+
+				return parcelas;
+			});
 		},
 
+		myTotal: ko.computed(function () {
+			return totals.getSegment('grand_total').value;
+		}),
+
 		getData: function () {
-			console.log('getData');
-			console.log(this.token);
 			var data = {
 				method: this.getCode(),
 				additional_data: {
@@ -170,16 +182,7 @@ define([
 			var meutoken;
 			var authorizer_code;
 
-			console.log(expdate);
 			authorizer_code = this.getAuthorizerCode(this.creditCardType());
-			console.log(
-				'URL - ' +
-					serviceUrl +
-					' merchant_id = ' +
-					this.merchant_id +
-					' merchant_key = ' +
-					this.merchant_key,
-			);
 
 			// console.log("Enviando: expiry_date=" + expdate + " number=" + this.creditCardNumber() + " authorizer_id=" + authorizer_code);
 
@@ -210,7 +213,6 @@ define([
 				},
 				contentType: 'application/json',
 				success: function (response) {
-					console.log('Resposta = ' + response);
 					meutoken = response.token;
 				},
 				error: function (xhr, status) {
@@ -218,11 +220,9 @@ define([
 				},
 			});
 			this.token = meutoken;
-			console.log('Token recebido = ' + this.token);
 		},
 
 		validate: function () {
-			console.log('pega token cartao !');
 			var $form = $('#' + this.getCode() + '-form');
 			if ($form.validation() && $form.validation('isValid')) {
 				//this.getToken();

@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:Event/etc/events.xsd">
+<!-- sales_order_payment_refund -->
+    <event name="vexpro_germinipay_service_cancel">
+        <observer name="Vexpro_GerminiPay_CancelPay" instance="Vexpro\GerminiPay\Observer\CancelPay" />
+    </event>
+</config>

@@ -24,6 +24,11 @@ class GerminiPay extends AbstractMethod
     protected $nit;
     protected $merchant_usn;
     protected $sitef_usn;
+    protected $cc_date;
+    protected $cc_number;
+    protected $authorizer_id;
+    protected $customer_id;
+    protected $token;
 
 
     /**
@@ -57,21 +62,43 @@ class GerminiPay extends AbstractMethod
                 $this->authorize($payment, $amount);
             }
 
+            $order = $payment->getOrder();
+
+            $this->customer_id = $order->getCustomerId();
+
             $cc_exp_month = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_exp_month'];
             $cc_exp_year = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_exp_year'];
             $cc_number = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_number'];
+            $this->cc_number = $cc_number;
             $cc_cid = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_cid'];
 
-            //     // Configura expdate no formato MMAA
+            // Configura expdate no formato MMAA
             $cc_date = $cc_exp_year . "-" . $cc_exp_month;
             $format = 'Y-m';
             $date = date_create_from_format($format, $cc_date);
             $expdate = date_format($date, "my");
+            $this->expdate = $expdate;
+
+            // Cria os parametros para o armazenamento de cartao REST
+            $params = [
+                "card" => [
+                    "expiry_date" => $this->expdate,
+                    "number" => $this->cc_number
+                ],
+                "authorizer_id" => $this->authorizer_id,
+                "merchant_usn" => $this->merchant_usn,
+                "customer_id" => $this->customer_id
+            ];
+
+            $response = $this->makeStoreCardRequest($params);
+
+            $order->setSitefToken($response['token']);
+            $this->token = $response['token'];
+
             //build array of payment data for API request.
             $params = [
                 "card" => [
-                    "number" => $cc_number,
-                    "expiry_date" => $expdate,
+                    "token" => $response['token'],
                     "security_code" => $cc_cid
                 ],
             ];
@@ -79,8 +106,9 @@ class GerminiPay extends AbstractMethod
             //make API request to credit card processor.
             $response = $this->makeCaptureRequest($params);
 
-            $order = $payment->getOrder();
             $order->setSitefUsn($this->sitef_usn);
+
+
 
             //transaction is done.
             $payment->setIsTransactionClosed(1);
@@ -116,6 +144,7 @@ class GerminiPay extends AbstractMethod
             'DN' => 33
         );
         $authorizer_id = $autorizadoras[$cc_type];
+        $this->authorizer_id = $authorizer_id;
 
 
         // 1) Criando a transação
@@ -161,6 +190,37 @@ class GerminiPay extends AbstractMethod
     public function getConfigPaymentAction()
     {
         return self::ACTION_AUTHORIZE_CAPTURE;
+    }
+
+    public function makeStoreCardRequest($params)
+    {
+        $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+        $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
+        $esitef_url = $scopeConfig->getValue('payment/Vexpro_GerminiPay/esitef_url', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+        $merchant_id = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_id', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+        $merchant_key = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_key', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+
+        $data_json = json_encode($params);
+        $url = $esitef_url . '/cards';
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+            'Content-Type: application/json',
+            'merchant_id: ' . $merchant_id,
+            'merchant_key: ' . $merchant_key
+        ));
+
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+        $response  = curl_exec($ch);
+        curl_close($ch);
+        $dados = json_decode($response);
+        $this->token = $dados->card->token;
+
+        $response = ['token' => $dados->card->token];
+
+        return $response;
     }
 
     /**
@@ -238,7 +298,7 @@ class GerminiPay extends AbstractMethod
             curl_close($ch);
             $dados = json_decode($response);
 
-            $sitef_usn = $dados->payment->sitef_usn;
+            $sitef_usn = $dados->payment->esitef_usn;
             $this->sitef_usn = $sitef_usn;
 
             $response = ['success'];
@@ -273,6 +333,7 @@ class GerminiPay extends AbstractMethod
         $merchant_id = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_id', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
         $merchant_key = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_key', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
 
+        $order = $payment->getOrder();
         $sitef_usn = $order->getSitefUsn();
 
         // 1) Criando a transação de cancelamento
@@ -284,7 +345,6 @@ class GerminiPay extends AbstractMethod
 
         try {
             $data_json = json_encode($params);
-            $url = "{$esitef_url}/payments/{$this->nit}";
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, $url);
             curl_setopt($ch, CURLOPT_HTTPHEADER, array(
@@ -298,48 +358,13 @@ class GerminiPay extends AbstractMethod
 
             $response  = curl_exec($ch);
             curl_close($ch);
-            $dados = json_decode($response);
-
-            $nit = $dados->payment->nit;
-
-            // 2) Cancelando o pagamento
-            $url = "{$esitef_url}/cancellations/{$nit}";
-
-            // $params = [
-            //     "card" => [
-            //         "number" =>
-            //     ],
-            // ];
-
-            $ch = curl_init();
-            curl_setopt($ch, CURLOPT_URL, $url);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-                'Content-Type: application/json',
-                'merchant_id: ' . $merchant_id,
-                'merchant_key: ' . $merchant_key
-            ));
-
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-
-            $response  = curl_exec($ch);
-            curl_close($ch);
-            $dados = json_decode($response);
-
-
-            $sitef_usn = $dados->payment->sitef_usn;
-            $this->sitef_usn = $sitef_usn;
-
-            $response = ['success'];
             if (!$response) {
-                throw new \Magento\Framework\Exception\LocalizedException(__('Failed capture request.'));
+                throw new \Magento\Framework\Exception\LocalizedException(__('Failed refund request.'));
             }
         } catch (\Exception $e) {
             $this->debug($e->getMessage());
             $response = ['fail'];
         }
-
-
         return $this;
     }
 }
