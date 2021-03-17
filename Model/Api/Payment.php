@@ -16,32 +16,14 @@ class Payment implements PaymentInterface
     public $nit;
     public $orderId;
 
-    public function _construct(
-
-    )
-    {
-
-    }
-
-    /*
-    * @param \Magento\Framework\Event\ManagerInterface as EventManager
-    */
-    public function __construct(
-        EventManager $eventManager,
-        \Magento\Sales\Api\Data\OrderInterfaceFactory $orderFactory
-    )
-    {
-        $this->eventManager = $eventManager;
-        $this->orderFactory = $orderFactory;
-    }
 
     public function __destruct()
     {
-         $data = new \Magento\Framework\DataObject(array(
-            'nit' => $this->nit,
-            'orderId' => $this->orderId
-        ));
-        $this->eventManager->dispatch('vexpro_germinipay_service_cancel', ['data' => $data]);
+        //  $data = new \Magento\Framework\DataObject(array(
+        //     'nit' => $this->nit,
+        //     'orderId' => $this->orderId
+        // ));
+        // $this->eventManager->dispatch('vexpro_germinipay_service_cancel', ['data' => $data]);
     }
 
     /**

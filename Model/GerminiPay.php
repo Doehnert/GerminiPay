@@ -72,6 +72,10 @@ class GerminiPay extends AbstractMethod
             $this->cc_number = $cc_number;
             $cc_cid = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_cid'];
 
+            $cpf_titular = $payment->getAdditionalInformation('post_data_value')['additional_data']['cpf'];
+
+            $nome_titular = $payment->getAdditionalInformation('post_data_value')['additional_data']['nome'];
+
             // Configura expdate no formato MMAA
             $cc_date = $cc_exp_year . "-" . $cc_exp_month;
             $format = 'Y-m';
@@ -104,11 +108,85 @@ class GerminiPay extends AbstractMethod
             ];
 
             //make API request to credit card processor.
-            $response = $this->makeCaptureRequest($params);
+            $dados = $this->makeCaptureRequest($params);
+
+            // Integracao Germini
+
+            $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+
+            // $customer = $objectManager->get('Magento\Customer\Api\CustomerRepositoryInterface')->getById($this->customer_id);
+
+            // $customerCPFCNPJ = $customer->getTaxvat();
+            // $customerName = $customer->getFirstName();
+            // $customerLastName = $customer->getLastName();
+            // $orderItems = $order->getAllItems();
+
+            // $allOrders = [];
+            // foreach($orderItems as $item)
+            // {
+
+            //     $productData = $objectManager->create('Magento\Catalog\Model\Product')->load($item->getProductId());
+            //     $newOrder = [
+            //         "code" => $item->getSku(),
+            //         "description" => $item->getDescription(),
+            //         "quantity" => $item->getQtyOrdered(),
+            //         "unitPrice" => $item->getBasePrice(),
+            //         "totalPrice" => $item->getPrice(),
+            //         "unity" => $productData->getUnidade(),
+            //         "pointsRedeemed" => $productData->getPontuacao(),
+            //         "pointsRedeemedDiscount" => 0
+            //     ];
+            //     array_push($allOrders, $newOrder);
+            // }
+
+            // $date = date(DATE_ATOM, mktime(0, 0, 0, 7, 1, 2000));
+
+            // $params = [
+            //     "date" => $dados->payment->payment_date,
+            //     "code" => $this->merchant_usn,
+            //     "partnerCNPJ" => 77863223000530,
+            //     "activitySector" => "ecommerce",
+            //     "consumerCPFCNPJ" => $customerCPFCNPJ,
+            //     "consumerName" => $customerName . ' ' . $customerLastName,
+            //     "total" => $amount,
+            //     "totalCurrency" => $amount,
+            //     "documentID" => $dados->payment->customer_receipt,
+            //     "documentKey" => $dados->payment->merchant_receipt,
+            //     "documentOperation" => 1,
+            //     "channelTypeId" => 2,
+            //     "invoiceItems" => $allOrders
+            // ];
+
+            // $response = $this->makeGerminiRequest($params);
+
+            //     /api/Invoice
+
+            //     date,
+            //     code: 59D23ZHZ
+            //     partnerCNPJ: cnpj da filial 70...1
+            //     activitySector: ... string "ecommerce"
+            //     consumerCPFCNPJ: do consumidor
+            //     consumerName: nome
+            //     total: total da compra
+            //     totalCurrency: total em dinheiro
+            //     documentID: numero qualquer
+            //     documentKey: ver na esitef
+            //     documentOperation: 1
+            //     channelTypeId: 2
+            //     InvoiceItems: [
+            //         code: sku do produto,
+            //         description: descricao do produto,
+            //         quantity: quantidade do produto,
+            //         unitPrice: preco unitario
+            //         totalPrice: unit x quantity
+            //         unity: un
+            //         pointsRedeemed: pontos utilizado
+            //         pointsRedeemedDiscount: 0
+            //     ]
+
+            // }
 
             $order->setSitefUsn($this->sitef_usn);
-
-
 
             //transaction is done.
             $payment->setIsTransactionClosed(1);
@@ -117,6 +195,28 @@ class GerminiPay extends AbstractMethod
         }
 
         return $this;
+    }
+
+    public function makeGerminiRequest($params)
+    {
+        try {
+            $data_json = json_encode($params);
+            $url = "{$esitef_url}/Invoice";
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            $response  = curl_exec($ch);
+            curl_close($ch);
+            $dados = json_decode($response);
+            if (!$response) {
+                throw new \Magento\Framework\Exception\LocalizedException(__('Failed integrationg with Germini.'));
+            }
+        } catch (\Exception $e) {
+            $this->debug($e->getMessage());
+            $response = ['fail'];
+        }
+        return $dados;
     }
 
     /**
@@ -301,7 +401,7 @@ class GerminiPay extends AbstractMethod
             $sitef_usn = $dados->payment->esitef_usn;
             $this->sitef_usn = $sitef_usn;
 
-            $response = ['success'];
+            //$response = ['success'];
             if (!$response) {
                 throw new \Magento\Framework\Exception\LocalizedException(__('Failed capture request.'));
             }
@@ -309,7 +409,7 @@ class GerminiPay extends AbstractMethod
             $this->debug($e->getMessage());
             $response = ['fail'];
         }
-        return $response;
+        return $dados;
     }
 
     /**

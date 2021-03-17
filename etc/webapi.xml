@@ -1,15 +1,16 @@
 <?xml version="1.0"?>
 <routes xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Webapi:etc/webapi.xsd">
-    <route url="/V1/pagamento" method="POST">
+    <!-- <route url="/V1/pagamento" method="POST">
+        <service class="Vexpro\GerminiPay\Api\PaymentInterface" method="getPost"/>
+        <resources>
+            <resource ref="anonymous"/>
+        </resources>
+    </route> -->
+    <route url="/testimonials/test/index" method="POST">
         <service class="Vexpro\GerminiPay\Api\PaymentInterface" method="getPost"/>
         <resources>
             <resource ref="anonymous"/>
         </resources>
     </route>
-    <route url="/V1/pagamento" method="GET">
-        <service class="Vexpro\GerminiPay\Api\PaymentInterface" method="getOk"/>
-        <resources>
-            <resource ref="anonymous"/>
-        </resources>
-    </route>
+
 </routes>
