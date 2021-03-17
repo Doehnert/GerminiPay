@@ -114,50 +114,62 @@ class GerminiPay extends AbstractMethod
 
             $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
 
-            // $customer = $objectManager->get('Magento\Customer\Api\CustomerRepositoryInterface')->getById($this->customer_id);
+            $cart = $objectManager->get('\Magento\Checkout\Model\Cart');
 
-            // $customerCPFCNPJ = $customer->getTaxvat();
-            // $customerName = $customer->getFirstName();
-            // $customerLastName = $customer->getLastName();
+            $customer = $objectManager->get('Magento\Customer\Api\CustomerRepositoryInterface')->getById($this->customer_id);
+
+            $customerCPFCNPJ = $customer->getTaxvat();
+            $customerName = $customer->getFirstName();
+            $customerLastName = $customer->getLastName();
             // $orderItems = $order->getAllItems();
+            $items = $cart->getQuote()->getAllItems();
 
-            // $allOrders = [];
-            // foreach($orderItems as $item)
-            // {
+            $allOrders = [];
+            foreach($items as $item)
+            {
 
-            //     $productData = $objectManager->create('Magento\Catalog\Model\Product')->load($item->getProductId());
-            //     $newOrder = [
-            //         "code" => $item->getSku(),
-            //         "description" => $item->getDescription(),
-            //         "quantity" => $item->getQtyOrdered(),
-            //         "unitPrice" => $item->getBasePrice(),
-            //         "totalPrice" => $item->getPrice(),
-            //         "unity" => $productData->getUnidade(),
-            //         "pointsRedeemed" => $productData->getPontuacao(),
-            //         "pointsRedeemedDiscount" => 0
-            //     ];
-            //     array_push($allOrders, $newOrder);
-            // }
+                $productData = $objectManager->create('Magento\Catalog\Model\Product')->load($item->getProductId());
 
-            // $date = date(DATE_ATOM, mktime(0, 0, 0, 7, 1, 2000));
+                $pointsRedeemed = 0;
+                if (null != ($item->getCustomPrice()))
+                {
+                    if ($item->getCustomPrice() == 0)
+                    {
+                        $pointsRedeemed = $productData->getPontuacao();
+                    }
+                }
+                $newOrder = [
+                    "code" => $item->getSku(),
+                    "description" => $productData->getDescription(),
+                    "quantity" => $item->getQty(),
+                    "unitPrice" => $item->getBasePrice(),
+                    "totalPrice" => $item->getPrice(),
+                    "unity" => $productData->getUnidade(),
+                    "pointsRedeemed" => $pointsRedeemed,
+                    "pointsRedeemedDiscount" => $pointsRedeemed
+                ];
+                array_push($allOrders, $newOrder);
+            }
 
-            // $params = [
-            //     "date" => $dados->payment->payment_date,
-            //     "code" => $this->merchant_usn,
-            //     "partnerCNPJ" => 77863223000530,
-            //     "activitySector" => "ecommerce",
-            //     "consumerCPFCNPJ" => $customerCPFCNPJ,
-            //     "consumerName" => $customerName . ' ' . $customerLastName,
-            //     "total" => $amount,
-            //     "totalCurrency" => $amount,
-            //     "documentID" => $dados->payment->customer_receipt,
-            //     "documentKey" => $dados->payment->merchant_receipt,
-            //     "documentOperation" => 1,
-            //     "channelTypeId" => 2,
-            //     "invoiceItems" => $allOrders
-            // ];
+            $date = date(DATE_ATOM, mktime(0, 0, 0, 7, 1, 2000));
 
-            // $response = $this->makeGerminiRequest($params);
+            $params = [
+                "date" => $date,
+                "code" => $this->merchant_usn,
+                "partnerCNPJ" => 70300299000185,
+                "activitySector" => "ecommerce",
+                "consumerCPFCNPJ" => $customerCPFCNPJ,
+                "consumerName" => $customerName . ' ' . $customerLastName,
+                "total" => $amount,
+                "totalCurrency" => $amount,
+                "documentID" => 123123,
+                "documentKey" => 456456,
+                "documentOperation" => 1,
+                "channelTypeId" => 2,
+                "invoiceItems" => $allOrders
+            ];
+
+            $response = $this->makeGerminiRequest($params);
 
             //     /api/Invoice
 
@@ -200,12 +212,20 @@ class GerminiPay extends AbstractMethod
     public function makeGerminiRequest($params)
     {
         try {
+            $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+            $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
+
+            $url_base = $scopeConfig->getValue('acessos/general/kernel_url', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+
             $data_json = json_encode($params);
-            $url = "{$esitef_url}/Invoice";
+            $url = "{$url_base}/api/Invoice";
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, $url);
             curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+                'Content-Type: application/json',
+            ));
             $response  = curl_exec($ch);
             curl_close($ch);
             $dados = json_decode($response);
