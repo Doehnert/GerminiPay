@@ -134,7 +134,7 @@ class GerminiPay extends AbstractMethod
                 $pointsRedeemed = 0;
                 if (null !== ($item->getAdditionalData()))
                 {
-                    $pointsRedeemed = (int) $productData->getPontuacao();
+                    $pointsRedeemed = (int) $productData->getPontosProduto();
                     $totalPoints += $pointsRedeemed;
                 }
 
