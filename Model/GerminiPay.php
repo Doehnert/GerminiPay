@@ -131,39 +131,51 @@ class GerminiPay extends AbstractMethod
                 $productData = $objectManager->create('Magento\Catalog\Model\Product')->load($item->getProductId());
 
                 $pointsRedeemed = 0;
-                if (null != ($item->getCustomPrice()))
+                if (null !== ($item->getAdditionalData()))
                 {
-                    if ($item->getCustomPrice() == 0)
-                    {
-                        $pointsRedeemed = $productData->getPontuacao();
-                    }
+                    $pointsRedeemed = (int) $productData->getPontuacao();
                 }
                 $newOrder = [
                     "code" => $item->getSku(),
-                    "description" => $productData->getDescription(),
+                    "description" => $productData->getName(),
                     "quantity" => $item->getQty(),
                     "unitPrice" => $item->getBasePrice(),
                     "totalPrice" => $item->getPrice(),
                     "unity" => $productData->getUnidade(),
                     "pointsRedeemed" => $pointsRedeemed,
-                    "pointsRedeemedDiscount" => $pointsRedeemed
+                    "pointsRedeemedDiscount" => 0
                 ];
                 array_push($allOrders, $newOrder);
             }
 
-            $date = date(DATE_ATOM, mktime(0, 0, 0, 7, 1, 2000));
+            $date = gmdate("Y-m-d\TH:i:s\Z");
+
+            function getRandomString($n) {
+                $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+                $randomString = '';
+
+                for ($i = 0; $i < $n; $i++) {
+                    $index = rand(0, strlen($characters) - 1);
+                    $randomString .= $characters[$index];
+                }
+
+                return $randomString;
+            }
+
+            $total = $order->getBaseGrandTotal();
+            $totalCurrency = $order->getGrandTotal();
 
             $params = [
                 "date" => $date,
                 "code" => $this->merchant_usn,
                 "partnerCNPJ" => 70300299000185,
                 "activitySector" => "ecommerce",
-                "consumerCPFCNPJ" => $customerCPFCNPJ,
+                "consumerCPFCNPJ" => (int) preg_replace("/[^0-9]/", "", $customerCPFCNPJ),
                 "consumerName" => $customerName . ' ' . $customerLastName,
-                "total" => $amount,
-                "totalCurrency" => $amount,
-                "documentID" => 123123,
-                "documentKey" => 456456,
+                "total" => $total,
+                "totalCurrency" => $totalCurrency,
+                "documentID" => getRandomString(3),
+                "documentKey" => getRandomString(3),
                 "documentOperation" => 1,
                 "channelTypeId" => 2,
                 "invoiceItems" => $allOrders
