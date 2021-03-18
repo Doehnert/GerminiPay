@@ -61,9 +61,7 @@ class GerminiPay extends AbstractMethod
             if (is_null($payment->getParentTransactionId())) {
                 $this->authorize($payment, $amount);
             }
-
             $order = $payment->getOrder();
-
             $this->customer_id = $order->getCustomerId();
 
             $cc_exp_month = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_exp_month'];
@@ -130,11 +128,21 @@ class GerminiPay extends AbstractMethod
 
                 $productData = $objectManager->create('Magento\Catalog\Model\Product')->load($item->getProductId());
 
+
+                $totalPoints = 0;
+
                 $pointsRedeemed = 0;
                 if (null !== ($item->getAdditionalData()))
                 {
                     $pointsRedeemed = (int) $productData->getPontuacao();
+                    $totalPoints += $pointsRedeemed;
                 }
+
+                if ($totalPoints > 0)
+                {
+                    $this->makeGerminiRedemption($totalPoints);
+                }
+
                 $newOrder = [
                     "code" => $item->getSku(),
                     "description" => $productData->getName(),
@@ -219,6 +227,47 @@ class GerminiPay extends AbstractMethod
         }
 
         return $this;
+    }
+
+    public function makeGerminiRedemption($totalPoints)
+    {
+        try {
+            $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+            $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
+
+            $url_base = $scopeConfig->getValue('acessos/general/kernel_url', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+
+            $customer = $objectManager->get('Magento\Customer\Api\CustomerRepositoryInterface')->getById($this->customer_id);
+
+            $customerCPFCNPJ = $customer->getTaxvat();
+
+            $params = [
+                "consumerCPF" => (int) preg_replace("/[^0-9]/", "", $customerCPFCNPJ),
+                "consumerPassword" => "212121",
+                "partnerCNPJ" => "70300299000185",
+                "totalPoints" => $totalPoints
+            ];
+
+            $data_json = json_encode($params);
+            $url = "{$url_base}/api/Transaction/CreateTransactionRedemption";
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+                'Content-Type: application/json',
+            ));
+            $response  = curl_exec($ch);
+            curl_close($ch);
+            $dados = json_decode($response);
+            if (!$response) {
+                throw new \Magento\Framework\Exception\LocalizedException(__('Failed integrationg with Germini.'));
+            }
+        } catch (\Exception $e) {
+            $this->debug($e->getMessage());
+            $response = ['fail'];
+        }
+        return $dados;
     }
 
     public function makeGerminiRequest($params)
