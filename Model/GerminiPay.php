@@ -33,6 +33,7 @@ class GerminiPay extends AbstractMethod
 
     protected $pontosCliente;
     protected $totalSeed;
+    protected $produtoSemPonto = false;
 
 
     public function _construct(){
@@ -54,6 +55,8 @@ class GerminiPay extends AbstractMethod
             //if (null !== ($item->getAdditionalData()))
             //{
                 $pointsRedeemed = (int) $productData->getPontosProduto();
+                if ($pointsRedeemed == 0)
+                    $this->produtoSemPonto = true;
                 $totalPoints += $pointsRedeemed;
             //}
         }
@@ -67,11 +70,14 @@ class GerminiPay extends AbstractMethod
         if (!$this->isActive($quote ? $quote->getStoreId() : null)){
             return false;
         }
+        if ($this->produtoSemPonto == true){
+            return false;
+        }
         if ($this->pontosCliente < $this->totalSeed){
             return false;
-        } else {
-            return true;
         }
+
+        return true;
     }
 
     public function validate()
@@ -274,7 +280,7 @@ class GerminiPay extends AbstractMethod
                 $response = ['fail'];
             }
             $logger->info("{$customerCPFCNPJ} -> resgate de SD {$this->totalSeed}");
-            
+
             $customerSession->setPontosCliente($this->pontosCliente - $this->totalSeed);
         } catch (\Exception $e) {
             $this->debug($e->getMessage());
