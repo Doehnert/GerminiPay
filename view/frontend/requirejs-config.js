@@ -4,6 +4,7 @@ var config = {
 		'*': {
 			hello: 'Vexpro_GerminiPay/js/hello',
 			'jquery.mask': 'Vexpro_GerminiPay/js/jquery.mask',
+			keyboard: 'Vexpro_GerminiPay/js/jquery.cryxpad',
 		},
 	},
 };

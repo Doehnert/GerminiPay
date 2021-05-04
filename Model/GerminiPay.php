@@ -29,7 +29,68 @@ class GerminiPay extends AbstractMethod
     protected $authorizer_id;
     protected $customer_id;
     protected $token;
+    protected $allOrders;
 
+    protected $pontosCliente;
+    protected $totalSeed;
+
+
+    public function _construct(){
+        $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+        $customerSession = $objectManager->create('Magento\Customer\Model\Session');
+
+        $customer = $customerSession->getCustomer();
+        $pontosCliente = $customer->getPontosCliente();
+        $this->pontosCliente = $pontosCliente;
+
+        $cart = $objectManager->get('\Magento\Checkout\Model\Cart');
+        $items = $cart->getQuote()->getAllItems();
+
+        $totalPoints = 0;
+        foreach($items as $item)
+        {
+            $productData = $objectManager->create('Magento\Catalog\Model\Product')->load($item->getProductId());
+
+            //if (null !== ($item->getAdditionalData()))
+            //{
+                $pointsRedeemed = (int) $productData->getPontosProduto();
+                $totalPoints += $pointsRedeemed;
+            //}
+        }
+        $this->totalSeed = $totalPoints;
+    }
+
+
+
+    public function isAvailable(\Magento\Quote\Api\Data\CartInterface $quote = null)
+    {
+        if (!$this->isActive($quote ? $quote->getStoreId() : null)){
+            return false;
+        }
+        if ($this->pontosCliente < $this->totalSeed){
+            return false;
+        } else {
+            return true;
+        }
+    }
+
+    public function validate()
+    {
+        parent::validate();
+
+        if ($this->pontosCliente < $this->totalSeed){
+            throw new \Magento\Framework\Exception\LocalizedException(
+                __('você não possuí pontos suficientes')
+            );
+        }
+
+        return true;
+    }
+
+    public function getTitle()
+    {
+        return $this->getConfigData('title') . " (Você possui: SD " . $this->pontosCliente . ")". "  (Será usado: SD " . $this->totalSeed . ")";
+    }
 
     /**
      * Set value after save payment from post data to use in case capture or authorize
@@ -45,8 +106,6 @@ class GerminiPay extends AbstractMethod
         return $this;
     }
 
-    // 7636
-
     /**
      * Capture Payment.
      *
@@ -56,22 +115,71 @@ class GerminiPay extends AbstractMethod
      */
     public function capture(\Magento\Payment\Model\InfoInterface $payment, $amount)
     {
+        //check if payment has been authorized
+        if (is_null($payment->getParentTransactionId())) {
+            $this->authorize($payment, $amount);
+        }
         try {
-            //check if payment has been authorized
-            if (is_null($payment->getParentTransactionId())) {
-                $this->authorize($payment, $amount);
+            // Caso o pagamento seja concluído segue para a API Invoice que irá
+            // seguir com a integração no Germini
+            $date = gmdate("Y-m-d\TH:i:s\Z");
+
+            function getRandomString($n) {
+                $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+                $randomString = '';
+
+                for ($i = 0; $i < $n; $i++) {
+                    $index = rand(0, strlen($characters) - 1);
+                    $randomString .= $characters[$index];
+                }
+
+                return $randomString;
             }
+
             $order = $payment->getOrder();
-            $this->customer_id = $order->getCustomerId();
+            $total = $order->getBaseGrandTotal();
+            $totalCurrency = $order->getGrandTotal();
+
+            $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+            $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
+            $customer = $objectManager->get('Magento\Customer\Api\CustomerRepositoryInterface')->getById($this->customer_id);
+            $customerName = $customer->getFirstName();
+            $customerLastName = $customer->getLastName();
+            $customerCPFCNPJ = $customer->getTaxvat();
+
+
+            // "code" => $this->merchant_usn,
+
+
+            $params = [
+                "date" => $date,
+                "code" => $order->getIncrementId(),
+                "partnerCNPJ" => 70300299000185,
+                "activitySector" => "ecommerce",
+                "consumerCPFCNPJ" => (int) preg_replace("/[^0-9]/", "", $customerCPFCNPJ),
+                "consumerName" => $customerName . ' ' . $customerLastName,
+                "total" => $total,
+                "totalCurrency" => $totalCurrency,
+                "documentID" => getRandomString(3),
+                "documentKey" => getRandomString(3),
+                "documentOperation" => 1,
+                "channelTypeId" => 2,
+                "invoiceItems" => $this->allOrders
+            ];
+
+            $response = $this->makeGerminiRequest($params);
+
+            // if ($order->getGrandTotal() == 0){
+                //$payment->setIsTransactionClosed(1);
+                return $this;
+            // }
 
             $cc_exp_month = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_exp_month'];
             $cc_exp_year = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_exp_year'];
             $cc_number = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_number'];
             $this->cc_number = $cc_number;
             $cc_cid = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_cid'];
-
             $cpf_titular = $payment->getAdditionalInformation('post_data_value')['additional_data']['cpf'];
-
             $nome_titular = $payment->getAdditionalInformation('post_data_value')['additional_data']['nome'];
 
             // Configura expdate no formato MMAA
@@ -108,116 +216,6 @@ class GerminiPay extends AbstractMethod
             //make API request to credit card processor.
             $dados = $this->makeCaptureRequest($params);
 
-            // Integracao Germini
-
-            $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
-
-            $cart = $objectManager->get('\Magento\Checkout\Model\Cart');
-
-            $customer = $objectManager->get('Magento\Customer\Api\CustomerRepositoryInterface')->getById($this->customer_id);
-
-            $customerCPFCNPJ = $customer->getTaxvat();
-            $customerName = $customer->getFirstName();
-            $customerLastName = $customer->getLastName();
-            // $orderItems = $order->getAllItems();
-            $items = $cart->getQuote()->getAllItems();
-
-            $allOrders = [];
-            foreach($items as $item)
-            {
-
-                $productData = $objectManager->create('Magento\Catalog\Model\Product')->load($item->getProductId());
-
-
-                $totalPoints = 0;
-
-                $pointsRedeemed = 0;
-                if (null !== ($item->getAdditionalData()))
-                {
-                    $pointsRedeemed = (int) $productData->getPontosProduto();
-                    $totalPoints += $pointsRedeemed;
-                }
-
-                if ($totalPoints > 0)
-                {
-                    $this->makeGerminiRedemption($totalPoints);
-                }
-
-                $newOrder = [
-                    "code" => $item->getSku(),
-                    "description" => $productData->getName(),
-                    "quantity" => $item->getQty(),
-                    "unitPrice" => $item->getBasePrice(),
-                    "totalPrice" => $item->getPrice(),
-                    "unity" => $productData->getUnidade(),
-                    "pointsRedeemed" => $pointsRedeemed,
-                    "pointsRedeemedDiscount" => 0
-                ];
-                array_push($allOrders, $newOrder);
-            }
-
-            $date = gmdate("Y-m-d\TH:i:s\Z");
-
-            function getRandomString($n) {
-                $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
-                $randomString = '';
-
-                for ($i = 0; $i < $n; $i++) {
-                    $index = rand(0, strlen($characters) - 1);
-                    $randomString .= $characters[$index];
-                }
-
-                return $randomString;
-            }
-
-            $total = $order->getBaseGrandTotal();
-            $totalCurrency = $order->getGrandTotal();
-
-            $params = [
-                "date" => $date,
-                "code" => $this->merchant_usn,
-                "partnerCNPJ" => 70300299000185,
-                "activitySector" => "ecommerce",
-                "consumerCPFCNPJ" => (int) preg_replace("/[^0-9]/", "", $customerCPFCNPJ),
-                "consumerName" => $customerName . ' ' . $customerLastName,
-                "total" => $total,
-                "totalCurrency" => $totalCurrency,
-                "documentID" => getRandomString(3),
-                "documentKey" => getRandomString(3),
-                "documentOperation" => 1,
-                "channelTypeId" => 2,
-                "invoiceItems" => $allOrders
-            ];
-
-            $response = $this->makeGerminiRequest($params);
-
-            //     /api/Invoice
-
-            //     date,
-            //     code: 59D23ZHZ
-            //     partnerCNPJ: cnpj da filial 70...1
-            //     activitySector: ... string "ecommerce"
-            //     consumerCPFCNPJ: do consumidor
-            //     consumerName: nome
-            //     total: total da compra
-            //     totalCurrency: total em dinheiro
-            //     documentID: numero qualquer
-            //     documentKey: ver na esitef
-            //     documentOperation: 1
-            //     channelTypeId: 2
-            //     InvoiceItems: [
-            //         code: sku do produto,
-            //         description: descricao do produto,
-            //         quantity: quantidade do produto,
-            //         unitPrice: preco unitario
-            //         totalPrice: unit x quantity
-            //         unity: un
-            //         pointsRedeemed: pontos utilizado
-            //         pointsRedeemedDiscount: 0
-            //     ]
-
-            // }
-
             $order->setSitefUsn($this->sitef_usn);
 
             //transaction is done.
@@ -229,23 +227,26 @@ class GerminiPay extends AbstractMethod
         return $this;
     }
 
-    public function makeGerminiRedemption($totalPoints)
+    public function makeGerminiRedemption($totalPoints, $password)
     {
         try {
             $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+
+            $customerSession = $objectManager->get('\Magento\Customer\Model\Session');
+            $germiniToken = $customerSession->getCustomerToken();
+
+            $logger = $objectManager->create('\Psr\Log\LoggerInterface');
+
             $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
-
             $url_base = $scopeConfig->getValue('acessos/general/kernel_url', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
-
             $customer = $objectManager->get('Magento\Customer\Api\CustomerRepositoryInterface')->getById($this->customer_id);
-
             $customerCPFCNPJ = $customer->getTaxvat();
 
             $params = [
                 "consumerCPF" => (int) preg_replace("/[^0-9]/", "", $customerCPFCNPJ),
-                "consumerPassword" => "212121",
+                "consumerPassword" => $password,
                 "partnerCNPJ" => "70300299000185",
-                "totalPoints" => $totalPoints
+                "totalPoints" => $this->totalSeed
             ];
 
             $data_json = json_encode($params);
@@ -256,13 +257,25 @@ class GerminiPay extends AbstractMethod
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_HTTPHEADER, array(
                 'Content-Type: application/json',
+                "Authorization: bearer {$germiniToken}"
             ));
             $response  = curl_exec($ch);
             curl_close($ch);
             $dados = json_decode($response);
             if (!$response) {
+                $logger->info('Erro na integracao germini');
                 throw new \Magento\Framework\Exception\LocalizedException(__('Failed integrationg with Germini.'));
             }
+            if (null !== $dados->errors){
+                $logger->info('Erro na integracao germini');
+                $messageManager = $objectManager->create('Magento\Framework\Message\ManagerInterface');
+                $messageManager->addError("Erro ao autenticar no Magento");
+                throw new \Magento\Framework\Exception\LocalizedException(__($dados->errors[0]->message));
+                $response = ['fail'];
+            }
+            $logger->info("{$customerCPFCNPJ} -> resgate de SD {$this->totalSeed}");
+            
+            $customerSession->setPontosCliente($this->pontosCliente - $this->totalSeed);
         } catch (\Exception $e) {
             $this->debug($e->getMessage());
             $response = ['fail'];
@@ -274,6 +287,12 @@ class GerminiPay extends AbstractMethod
     {
         try {
             $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+            $logger = $objectManager->create('\Psr\Log\LoggerInterface');
+
+            $customerSession = $objectManager->get('\Magento\Customer\Model\Session');
+            $germiniToken = $customerSession->getCustomerToken();
+
+
             $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
 
             $url_base = $scopeConfig->getValue('acessos/general/kernel_url', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
@@ -285,19 +304,21 @@ class GerminiPay extends AbstractMethod
             curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-                'Content-Type: application/json',
+                "Content-Type: application/json",
+                "Authorization: bearer {$germiniToken}"
             ));
             $response  = curl_exec($ch);
             curl_close($ch);
-            $dados = json_decode($response);
-            if (!$response) {
-                throw new \Magento\Framework\Exception\LocalizedException(__('Failed integrationg with Germini.'));
+            $resposta = json_decode($response);
+            if (!$response || $resposta->success != true) {
+                $logger->info("Consumidor CPF: {$params['consumerCPFCNPJ']} -> Falha na integração com o Germini");
+                throw new \Magento\Framework\Exception\LocalizedException(__('Falha na integração com o Germini'));
             }
         } catch (\Exception $e) {
             $this->debug($e->getMessage());
             $response = ['fail'];
         }
-        return $dados;
+        return $resposta;
     }
 
     /**
@@ -311,11 +332,69 @@ class GerminiPay extends AbstractMethod
      */
     public function authorize(\Magento\Payment\Model\InfoInterface $payment, $amount)
     {
-        $cpf = $payment->getAdditionalInformation('post_data_value')['additional_data']['cpf'];
-        $nome = $payment->getAdditionalInformation('post_data_value')['additional_data']['nome'];
-        $parcelas = $payment->getAdditionalInformation('post_data_value')['additional_data']['parcelas'];
-        $cc_type = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_type'];
+        // Pega dados do formulario
+        // $cpf = $payment->getAdditionalInformation('post_data_value')['additional_data']['cpf'];
+        // $nome = $payment->getAdditionalInformation('post_data_value')['additional_data']['nome'];
+        // $parcelas = $payment->getAdditionalInformation('post_data_value')['additional_data']['parcelas'];
+        // $cc_type = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_type'];
+        $senha = $payment->getAdditionalInformation('post_data_value')['additional_data']['senha'];
 
+        $order = $payment->getOrder();
+        $this->customer_id = $order->getCustomerId();
+        // 1) Verifica no Germini através da API CreateTransactionRedemption se
+        // o usuário tem a pontuação requerida para resgate.
+        $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+        $cart = $objectManager->get('\Magento\Checkout\Model\Cart');
+        $customer = $objectManager->get('Magento\Customer\Api\CustomerRepositoryInterface')->getById($this->customer_id);
+        $customerCPFCNPJ = $customer->getTaxvat();
+        $customerName = $customer->getFirstName();
+        $customerLastName = $customer->getLastName();
+        $items = $cart->getQuote()->getAllItems();
+
+        $allOrders = [];
+        foreach($items as $item)
+        {
+            $productData = $objectManager->create('Magento\Catalog\Model\Product')->load($item->getProductId());
+            $totalPoints = 0;
+            $pointsRedeemed = 0;
+            if (null !== ($item->getAdditionalData()))
+            {
+                $pointsRedeemed = (int) $productData->getPontosProduto();
+                $totalPoints += $pointsRedeemed;
+            }
+
+            $newOrder = [
+                "code" => $item->getSku(),
+                "description" => $productData->getName(),
+                "quantity" => $item->getQty(),
+                "unitPrice" => $item->getBasePrice(),
+                "totalPrice" => $item->getPrice() * $item->getQty(),
+                "unity" => $productData->getUnidade(),
+                "pointsRedeemed" => $pointsRedeemed,
+                "pointsRedeemedDiscount" => 0
+            ];
+
+            array_push($allOrders, $newOrder);
+        }
+        $this->allOrders = $allOrders;
+
+        if ($this->totalSeed > 0)
+        {
+            try {
+                $this->makeGerminiRedemption($totalPoints, $senha);
+            }catch(\Exception $e){
+                throw new \Magento\Framework\Exception\LocalizedException(__('Falha no resgate de pontos, senha incorreta.'));
+            }
+        }
+
+        // Se pagamento apenas com pontos termina a transacao aqui
+        // if ($order->getGrandTotal() == 0)
+        // {
+            //$payment->setIsTransactionClosed(1);
+            return $this;
+        // }
+
+        // 2) Authorize
         $autorizadoras = array(
             'AE' => 3,
             'VI' => 1,
@@ -324,6 +403,9 @@ class GerminiPay extends AbstractMethod
             'JCB' => 43,
             'DN' => 33
         );
+
+        $cc_type = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_type'];
+
         $authorizer_id = $autorizadoras[$cc_type];
         $this->authorizer_id = $authorizer_id;
 
@@ -336,13 +418,17 @@ class GerminiPay extends AbstractMethod
             $quote = $checkoutSession->getQuote();
             $merchant_usn = $quote->getReservedOrderId();
             $this->merchant_usn = $merchant_usn;
+
+            $order = $payment->getOrder();
+            $totalCurrency = $order->getGrandTotal();
+
             $params = [
                 "merchant_usn" => $merchant_usn,
                 "order_id" => $merchant_usn,
                 "installments" => $parcelas,
                 "installment_type" => "4",
                 "authorizer_id" => $authorizer_id,
-                "amount" => $amount * 100,
+                "amount" => $totalCurrency * 100,
             ];
 
             $response = $this->makeAuthRequest($params);
@@ -351,7 +437,6 @@ class GerminiPay extends AbstractMethod
         }
 
         if (isset($response['transactionId'])) {
-            // Successful auth request.
             // Set the transaction id on the payment so the capture request knows auth has happened.
             $payment->setTransactionId($response['transactionId']);
             $payment->setParentTransactionId($response['transactionId']);

@@ -1,235 +1,260 @@
 define([
-	'jquery',
-	'Magento_Payment/js/view/payment/cc-form',
-	'Magento_Payment/js/model/credit-card-validation/validator',
-	'ko',
-	'Magento_Checkout/js/model/quote',
-	'mage/storage',
-	'mage/url',
-	'Magento_Catalog/js/price-utils',
-	'moment',
-	'Magento_Checkout/js/model/totals',
-	'Magento_Customer/js/customer-data',
+  "jquery",
+  "Magento_Payment/js/view/payment/cc-form",
+  "Magento_Payment/js/model/credit-card-validation/validator",
+  "ko",
+  "Magento_Checkout/js/model/quote",
+  "mage/storage",
+  "mage/url",
+  "Magento_Catalog/js/price-utils",
+  "moment",
+  "Magento_Checkout/js/model/totals",
+  "Magento_Customer/js/customer-data",
+  "Magento_Ui/js/modal/modal",
 ], function (
-	$,
-	Component,
-	Validatorm,
-	ko,
-	quote,
-	storage,
-	url,
-	priceUtils,
-	moment,
-	totals,
-	customerData,
+  $,
+  Component,
+  Validatorm,
+  ko,
+  quote,
+  storage,
+  url,
+  priceUtils,
+  moment,
+  totals,
+  customerData,
 ) {
-	'use strict';
-	//quote.totals._latestValue.grand_total
-	var self;
-	return Component.extend({
-		myGrandTotal: 0,
-		defaults: {
-			template: 'Vexpro_GerminiPay/payment/germinipay',
-			num_parcelas: 5,
-			token: '',
-			merchant_id: '',
-			merchant_key: '',
-			esitef_url: '',
-			order_id: 0,
-			customer_id: 0,
-		},
+  ("use strict");
 
-		initialize: function () {
-			self = this;
-			this._super();
-			this.populateUi();
-		},
+  var self;
 
-		getGrandTotal: function () {
-			if (totals.totals()) {
-				var grandTotal = parseFloat(totals.totals()['grand_total']);
-				return grandTotal;
-			}
-		},
+  return Component.extend({
+    teste: ko.computed(function () {
+      var teste = ko.observable(window.checkoutConfig["usados"]);
+      teste.valueHasMutated();
+      console.log(teste());
+    }),
 
-		populateUi: function () {
-			var grand_total;
-			var parcelas = [];
-			var num_parcelas;
-			var merchant_id;
-			var merchant_key;
-			var esitef_url;
+    myGrandTotal: 0,
 
-			var serviceUrl = url.build('configuracao/custom/storeconfig');
+    defaults: {
+      template: "Vexpro_GerminiPay/payment/germinipay",
+      num_parcelas: 5,
+      token: "",
+      merchant_id: "",
+      merchant_key: "",
+      esitef_url: "",
+      order_id: 0,
+      customer_id: 0,
+      senha: "",
+    },
 
-			jQuery.ajax({
-				url: serviceUrl,
-				type: 'GET',
-				async: false,
-				success: function (response) {
-					num_parcelas = response.value;
-					merchant_id = response.merchant_id;
-					merchant_key = response.merchant_key;
-					esitef_url = response.esitef_url;
-				},
-			});
-			this.num_parcelas = num_parcelas;
-			this.merchant_id = merchant_id;
-			this.merchant_key = merchant_key;
-			this.esitef_url = esitef_url;
+    initialize: function () {
+      self = this;
 
-			var priceFormat = {
-				decimalSymbol: '.',
-				groupLength: 3,
-				groupSymbol: ',',
-				integerRequired: false,
-				pattern: '$%s',
-				precision: 2,
-				requiredPrecision: 2,
-			};
+      this._super();
+      this.populateUi();
+      this.PersonViewModel();
+    },
 
-			var Parcela = function (name, text) {
-				this.name = name;
-				this.text = text;
-			};
+    // myPoints: ko.observable(pontos_cliente),
 
-			grand_total = this.myTotal();
+    getGrandTotal: function () {
+      if (totals.totals()) {
+        var grandTotal = parseFloat(totals.totals()["grand_total"]);
+        return grandTotal;
+      }
+    },
 
-			// this.parcelas = ko.observableArray(parcelas);
-			this.parcelas = ko.computed(function () {
-				parcelas = [];
-				for (var i = 0; i < num_parcelas; i++) {
-					parcelas.push(
-						new Parcela(
-							i + 1,
-							'Pagar em ' +
-								(i + 1) +
-								' vezes de ' +
-								priceUtils.formatPrice(self.myTotal() / (i + 1), priceFormat),
-						),
-					);
-				}
+    PersonViewModel: function () {
+      personName = ko.observable(window.checkoutConfig["usados"]);
+      personName.extend({ notify: "always" });
+      personName.extend({ rateLimit: 500 });
+    },
 
-				return parcelas;
-			});
-		},
+    populateUi: function () {
+      var grand_total;
+      var parcelas = [];
+      var num_parcelas;
+      var merchant_id;
+      var merchant_key;
+      var esitef_url;
+      var pontoUsado = 0;
+      var pontos_cliente;
 
-		myTotal: ko.computed(function () {
-			return totals.getSegment('grand_total').value;
-		}),
+      var serviceUrl = url.build("configuracao/custom/storeconfig");
 
-		getData: function () {
-			var data = {
-				method: this.getCode(),
-				additional_data: {
-					cc_cid: this.creditCardVerificationNumber(),
-					cc_type: this.creditCardType(),
-					cc_exp_year: this.creditCardExpYear(),
-					cc_exp_month: this.creditCardExpMonth(),
-					cc_number: this.creditCardNumber(),
-					cpf: $('#cpf').val(),
-					nome: $('#nome').val(),
-					parcelas: $('#parcelas').val(),
-				},
-			};
+      jQuery.ajax({
+        url: serviceUrl,
+        type: "GET",
+        async: false,
+        success: function (response) {
+          num_parcelas = response.value;
+          merchant_id = response.merchant_id;
+          merchant_key = response.merchant_key;
+          esitef_url = response.esitef_url;
+        },
+      });
+      this.num_parcelas = num_parcelas;
+      this.merchant_id = merchant_id;
+      this.merchant_key = merchant_key;
+      this.esitef_url = esitef_url;
 
-			return data;
-		},
+      this.pontos_cliente = customerData["pontos"];
 
-		context: function () {
-			return this;
-		},
+      var priceFormat = {
+        decimalSymbol: ".",
+        groupLength: 3,
+        groupSymbol: ",",
+        integerRequired: false,
+        pattern: "$%s",
+        precision: 2,
+        requiredPrecision: 2,
+      };
 
-		getCode: function () {
-			//this.num_parcelas = 989;
-			//this.token = 'socorro';
-			//console.log(this.num_parcelas);
-			return 'Vexpro_GerminiPay';
-		},
+      var Parcela = function (name, text) {
+        this.name = name;
+        this.text = text;
+      };
 
-		isActive: function () {
-			return true;
-		},
+      this.desconto = ko.observable(0).extend({ notify: "always" });
 
-		getAuthorizerCode: function (authorizer) {
-			var code = new Object();
-			code['AE'] = 3;
-			code['VI'] = 1;
-			code['MC'] = 2;
-			code['DI'] = 44;
-			code['JCB'] = 43;
-			code['DN'] = 33;
+      this.ponto2 = ko.observable(0).extend({ notify: "always" });
 
-			if (authorizer in code) {
-				return code[authorizer];
-			} else {
-				return false;
-			}
-		},
+      this.dinheiro = ko.observable(0).extend({ notify: "always" });
 
-		getToken: function () {
-			// Envia informações do cartão de crédito e recebe
-			// o token correspondente
-			var ed = new Date(
-				this.creditCardExpYear(),
-				this.creditCardExpMonth() - 1,
-				'01',
-			);
-			var expdate = moment(ed).format('MMYY');
-			//var serviceUrl = url.build('configuracao/custom/mocktoken');
-			var serviceUrl =
-				'https://cors-anywhere.herokuapp.com/' + this.esitef_url + '/cards';
-			var meutoken;
-			var authorizer_code;
+      this.pontosUsados = ko.computed(function () {
+        console.log(self.desconto());
+        if (self.ponto2() != null && self.ponto2() != 0) {
+          return true;
+        } else {
+          return false;
+        }
+      });
 
-			authorizer_code = this.getAuthorizerCode(this.creditCardType());
+      this.habilitaTeclado = ko.computed(function () {
+        if (self.pontosUsados()) {
+          return "auto";
+        } else {
+          return "none";
+        }
+      });
 
-			// console.log("Enviando: expiry_date=" + expdate + " number=" + this.creditCardNumber() + " authorizer_id=" + authorizer_code);
+      this.dinheiroUsado = ko.computed(function () {
+        console.log(self.dinheiro());
+        if (self.dinheiro() === 0) {
+          return false;
+        } else {
+          this.template = "teste";
+          return true;
+        }
+      });
 
-			$.ajax({
-				url: serviceUrl,
-				headers: {
-					merchant_id: this.merchant_id,
-					merchant_key: this.merchant_key,
-					'Content-Type': 'application/json',
-				},
-				type: 'POST',
-				dataType: 'json',
-				crossDomain: true,
-				beforeSend: function (request) {
-					request.setRequestHeader('Content-Type', 'application/json');
-					request.setRequestHeader('merchant_id', this.merchant_id);
-					request.setRequestHeader('merchant_key', this.merchant_key);
-				},
-				async: false,
-				data: {
-					card: {
-						expiry_date: expdate,
-						number: this.creditCardNumber(),
-					},
-					authorizer_id: this.creditCardType(),
-					merchant_usn: '16013439434',
-					customer_id: '11122211122',
-				},
-				contentType: 'application/json',
-				success: function (response) {
-					meutoken = response.token;
-				},
-				error: function (xhr, status) {
-					alert('error');
-				},
-			});
-			this.token = meutoken;
-		},
+      this.parcelas = ko.computed(function () {
+        console.log(quote.getTotals()()["total_segments"]);
 
-		validate: function () {
-			var $form = $('#' + this.getCode() + '-form');
-			if ($form.validation() && $form.validation('isValid')) {
-				//this.getToken();
-				return true;
-			} else {
-				return false;
-			}
-		},
-	});
+        var dinheiro = quote.getTotals()()["total_segments"][4]["value"];
+        var desconto = quote.getTotals()()["total_segments"][2]["value"];
+
+        console.log(desconto);
+        self.desconto(desconto);
+        self.ponto2(window.checkoutConfig["usados"]);
+        self.dinheiro(dinheiro);
+
+        parcelas = [];
+        for (var i = 0; i < num_parcelas; i++) {
+          parcelas.push(
+            new Parcela(
+              i + 1,
+              "Pagar em " +
+                (i + 1) +
+                " vezes de " +
+                priceUtils.formatPrice(self.myTotal() / (i + 1), priceFormat),
+            ),
+          );
+        }
+
+        return parcelas;
+      });
+    },
+
+    usaPontos: ko.computed(function () {
+      // if (localStorage['visited'] > 0) {
+      // 	return true;
+      // } else {
+      // 	return false;
+      // }
+      return true;
+    }),
+
+    dinheiroUsado: ko.computed(function () {
+      // if (this.grand_total > 0) return true;
+      return false;
+    }),
+
+    myTotal: ko.computed(function () {
+      // this.myPoints(0);
+      // console.log(myPoints);
+      return totals.getSegment("grand_total").value;
+    }),
+
+    getData: function () {
+      var data = {
+        method: this.getCode(),
+        additional_data: {
+          cc_cid: this.creditCardVerificationNumber(),
+          cc_type: this.creditCardType(),
+          cc_exp_year: this.creditCardExpYear(),
+          cc_exp_month: this.creditCardExpMonth(),
+          cc_number: this.creditCardNumber(),
+          cpf: $("#cpf").val(),
+          nome: $("#nome").val(),
+          parcelas: $("#parcelas").val(),
+          senha: $("#senha").val(),
+        },
+      };
+
+      return data;
+    },
+
+    context: function () {
+      return this;
+    },
+
+    getCode: function () {
+      return "Vexpro_GerminiPay";
+    },
+
+    isActive: function () {
+      return true;
+    },
+
+    getAuthorizerCode: function (authorizer) {
+      var code = new Object();
+      code["AE"] = 3;
+      code["VI"] = 1;
+      code["MC"] = 2;
+      code["DI"] = 44;
+      code["JCB"] = 43;
+      code["DN"] = 33;
+
+      if (authorizer in code) {
+        return code[authorizer];
+      } else {
+        return false;
+      }
+    },
+    validate: function () {
+      // Se o preço total for 0 não realiza validação
+      // Se utilizar pontuação, mostra um modal para usuário colocar a senha
+      var $form = $("#" + this.getCode() + "-form");
+
+      if ($form.validation() && $form.validation("isValid")) {
+        return true;
+      } else {
+        return false;
+      }
+      return true;
+    },
+  });
 });
