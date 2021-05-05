@@ -363,11 +363,11 @@ class GerminiPay extends AbstractMethod
             $productData = $objectManager->create('Magento\Catalog\Model\Product')->load($item->getProductId());
             $totalPoints = 0;
             $pointsRedeemed = 0;
-            if (null !== ($item->getAdditionalData()))
-            {
+            //if (null !== ($item->getAdditionalData()))
+            //{
                 $pointsRedeemed = (int) $productData->getPontosProduto();
                 $totalPoints += $pointsRedeemed;
-            }
+            //}
 
             $newOrder = [
                 "code" => $item->getSku(),
