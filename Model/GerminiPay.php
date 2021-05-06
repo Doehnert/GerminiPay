@@ -41,6 +41,7 @@ class GerminiPay extends AbstractMethod
         $customerSession = $objectManager->create('Magento\Customer\Model\Session');
 
         $customer = $customerSession->getCustomer();
+
         $pontosCliente = $customer->getPontosCliente();
         $this->pontosCliente = $pontosCliente;
 
@@ -281,7 +282,11 @@ class GerminiPay extends AbstractMethod
             }
             $logger->info("{$customerCPFCNPJ} -> resgate de SD {$this->totalSeed}");
 
-            $customerSession->setPontosCliente($this->pontosCliente - $this->totalSeed);
+            $novoValorPontos = $this->pontosCliente - $this->totalSeed;
+            $customer = $customerSession->getCustomer();
+            $customer->setPontosCliente($novoValorPontos);
+            $customer->save();
+
         } catch (\Exception $e) {
             $this->debug($e->getMessage());
             $response = ['fail'];
