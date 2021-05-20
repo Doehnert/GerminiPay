@@ -6,5 +6,6 @@
         <attribute code="sitef_usn" type="string" />
         <attribute code="sitef_token" type="string" />
         <attribute code="sitef_nit" type="string" />
+        <attribute code="pontos_usados" type="string" />
     </extension_attributes>
 </config>

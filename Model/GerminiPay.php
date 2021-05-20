@@ -34,6 +34,7 @@ class GerminiPay extends AbstractMethod
     protected $pontosCliente;
     protected $totalSeed;
     protected $produtoSemPonto = false;
+    protected $transactionId;
 
 
     public function _construct(){
@@ -178,7 +179,10 @@ class GerminiPay extends AbstractMethod
 
             // if ($order->getGrandTotal() == 0){
                 //$payment->setIsTransactionClosed(1);
-                return $this;
+
+            $payment->setTransactionId($this->transactionId);
+            $payment->setIsTransactionClosed(1);
+            return $this;
             // }
 
             $cc_exp_month = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_exp_month'];
@@ -285,6 +289,7 @@ class GerminiPay extends AbstractMethod
             $novoValorPontos = $this->pontosCliente - $this->totalSeed;
             $customer = $customerSession->getCustomer();
             $customer->setPontosCliente($novoValorPontos);
+            $this->transactionId = $dados->data->transactionId;
             $customer->save();
 
         } catch (\Exception $e) {
@@ -393,6 +398,7 @@ class GerminiPay extends AbstractMethod
         {
             try {
                 $this->makeGerminiRedemption($totalPoints, $senha);
+                $order->setPontosUsados($this->totalSeed);
             }catch(\Exception $e){
                 throw new \Magento\Framework\Exception\LocalizedException(__('Falha no resgate de pontos, senha incorreta.'));
             }
@@ -606,42 +612,90 @@ class GerminiPay extends AbstractMethod
         }
         $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
         $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
-        $esitef_url = $scopeConfig->getValue('payment/Vexpro_GerminiPay/esitef_url', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
-        $merchant_id = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_id', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
-        $merchant_key = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_key', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
 
+        // ESTORNO DOS PONTOS USADOS NO GERMINI
         $order = $payment->getOrder();
-        $sitef_usn = $order->getSitefUsn();
+        $pontos_usados = $order->getPontosUsados();
+        $transactionId = $payment->getTransactionId();
 
-        // 1) Criando a transação de cancelamento
-        $url = "{$esitef_url}/cancellations";
+        $transactionId = explode("-", $transactionId);
+        // Remove o texto 'refund' em transactionId
+        array_pop($transactionId);
+        $transactionId = join("-", $transactionId);
 
         $params = [
-            "esitef_usn" => $sitef_usn,
+            "transactionId" => $transactionId,
+            "status" => 2
         ];
 
         try {
+            $logger = $objectManager->create('\Psr\Log\LoggerInterface');
+
+            $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
+
+            $url_base = $scopeConfig->getValue('acessos/general/kernel_url', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+
             $data_json = json_encode($params);
+            $url = "{$url_base}/api/Transaction/UpdateTransactionRedemption";
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, $url);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-                'Content-Type: application/json',
-                'merchant_id: ' . $merchant_id,
-                'merchant_key: ' . $merchant_key
-            ));
-
             curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+                "Content-Type: application/json"
+            ));
             $response  = curl_exec($ch);
             curl_close($ch);
-            if (!$response) {
-                throw new \Magento\Framework\Exception\LocalizedException(__('Failed refund request.'));
+            $resposta = json_decode($response);
+            if (!$response || $resposta->success != true) {
+                $logger->info("Falha no estorno com valor {$valor}");
+                throw new \Magento\Framework\Exception\LocalizedException(__('Falha no estorno dos pontos'));
             }
+
+            $logger->info("Estornado {$pontos_usados} para a transação ID: {$transactionId}");
+            $messageManager = $objectManager->create('Magento\Framework\Message\ManagerInterface');
+            $messageManager->addSuccess("Estornado SD {$pontos_usados} para a transação ID: {$transactionId}");
+
         } catch (\Exception $e) {
             $this->debug($e->getMessage());
-            $response = ['fail'];
         }
+
+        // $esitef_url = $scopeConfig->getValue('payment/Vexpro_GerminiPay/esitef_url', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+        // $merchant_id = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_id', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+        // $merchant_key = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_key', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+
+        // $order = $payment->getOrder();
+        // $sitef_usn = $order->getSitefUsn();
+
+        // // 1) Criando a transação de cancelamento
+        // $url = "{$esitef_url}/cancellations";
+
+        // $params = [
+        //     "esitef_usn" => $sitef_usn,
+        // ];
+
+        // try {
+        //     $data_json = json_encode($params);
+        //     $ch = curl_init();
+        //     curl_setopt($ch, CURLOPT_URL, $url);
+        //     curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+        //         'Content-Type: application/json',
+        //         'merchant_id: ' . $merchant_id,
+        //         'merchant_key: ' . $merchant_key
+        //     ));
+
+        //     curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
+        //     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+        //     $response  = curl_exec($ch);
+        //     curl_close($ch);
+        //     if (!$response) {
+        //         throw new \Magento\Framework\Exception\LocalizedException(__('Failed refund request.'));
+        //     }
+        // } catch (\Exception $e) {
+        //     $this->debug($e->getMessage());
+        //     $response = ['fail'];
+        // }
         return $this;
     }
 }

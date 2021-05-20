@@ -13,6 +13,9 @@
     <type name="Magento\Sales\Api\OrderRepositoryInterface">
         <plugin name="get_sitef_nit" type="Vexpro\GerminiPay\Plugin\OrderGetNit"/>
     </type>
+    <type name="Magento\Sales\Api\OrderRepositoryInterface">
+        <plugin name="pontos_usados_attribute" type="Vexpro\GerminiPay\Plugin\OrderGetPontos"/>
+    </type>
 
     <type name="Vexpro\GerminiPay\Model\Api\Payment">
         <plugin name="respondCancel" type="Vexpro\GerminiPay\Plugin\CancelManagement" sortOrder="100" disabled="false"/>
