@@ -23,7 +23,7 @@ class InstallSchema implements InstallSchemaInterface
                 'type' => Table::TYPE_TEXT,
                 'size' => 255,
                 'nullable' => true,
-                'comment' => 'Numero nota fiscal'
+                'comment' => 'Sitef Usn'
             ]
         );
 

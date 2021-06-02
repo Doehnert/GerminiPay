@@ -7,6 +7,16 @@
         </arguments>
     </type>
 
+    <!-- Sync the column "pontos_usados" between the sales_order and sales_order_grid tables -->
+    <virtualType name="Magento\Sales\Model\ResourceModel\Order\Grid" type="Magento\Sales\Model\ResourceModel\Grid">
+        <arguments>
+            <argument name="columns">
+                <item name="pontos_usados" xsi:type="string">sales_order.pontos_usados</item>
+            </argument>
+        </arguments>
+    </virtualType>
+
+
     <type name="Magento\Sales\Api\OrderRepositoryInterface">
         <plugin name="get_sitef_usn" type="Vexpro\GerminiPay\Plugin\OrderGet"/>
     </type>
