@@ -64,7 +64,7 @@ class OrderGetPontos
         $orders = $searchResult->getItems();
 
         foreach ($orders as &$order) {
-            $pontosUsados = $order->getData(self::SITEF_NIT);
+            $pontosUsados = $order->getData(self::PONTOS_USADOS);
             $extensionAttributes = $order->getExtensionAttributes();
             $extensionAttributes = $extensionAttributes ? $extensionAttributes : $this->extensionFactory->create();
             $extensionAttributes->setPontosUsados($pontosUsados);
