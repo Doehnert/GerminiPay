@@ -8,12 +8,12 @@ use Magento\Sales\Api\Data\OrderInterface;
 use Magento\Sales\Api\Data\OrderSearchResultInterface;
 use Magento\Sales\Api\OrderRepositoryInterface;
 
-class OrderGetNit
+class OrderPaymentCode
 {
     /**
      * Order feedback field name
      */
-    const SITEF_NIT = 'sitef_nit';
+    const PAYMENT_CODE = 'payment_code';
 
     /**
      * Order Extension Attributes Factory
@@ -42,10 +42,10 @@ class OrderGetNit
      */
     public function afterGet(OrderRepositoryInterface $subject, OrderInterface $order)
     {
-        $sitefNit = $order->getData(self::SITEF_NIT);
+        $paymentCode = $order->getData(self::PAYMENT_CODE);
         $extensionAttributes = $order->getExtensionAttributes();
         $extensionAttributes = $extensionAttributes ? $extensionAttributes : $this->extensionFactory->create();
-        $extensionAttributes->setSitefNit($sitefNit);
+        $extensionAttributes->setPaymentCode($paymentCode);
         $order->setExtensionAttributes($extensionAttributes);
 
         return $order;
@@ -64,10 +64,10 @@ class OrderGetNit
         $orders = $searchResult->getItems();
 
         foreach ($orders as &$order) {
-            $sitefNit = $order->getData(self::SITEF_NIT);
+            $paymentCode = $order->getData(self::PAYMENT_CODE);
             $extensionAttributes = $order->getExtensionAttributes();
             $extensionAttributes = $extensionAttributes ? $extensionAttributes : $this->extensionFactory->create();
-            $extensionAttributes->setSitefNit($sitefNit);
+            $extensionAttributes->setPaymentCode($paymentCode);
             $order->setExtensionAttributes($extensionAttributes);
         }
 
@@ -84,8 +84,8 @@ class OrderGetNit
         OrderInterface $quote
     ) {
         $extensionAttributes = $quote->getExtensionAttributes() ?: $this->extensionFactory->create();
-        if ($extensionAttributes !== null && $extensionAttributes->getSitefUsn() !== null) {
-            $quote->setSitefNit($extensionAttributes->getSitefNit());
+        if ($extensionAttributes !== null && $extensionAttributes->getPaymentCode() !== null) {
+            $quote->setPaymentCode($extensionAttributes->getPaymentCode());
         }
 
         return [$quote];

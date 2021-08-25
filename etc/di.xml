@@ -18,10 +18,13 @@
 
 
     <type name="Magento\Sales\Api\OrderRepositoryInterface">
-        <plugin name="get_sitef_usn" type="Vexpro\GerminiPay\Plugin\OrderGet"/>
+        <plugin name="get_tracking_code" type="Vexpro\GerminiPay\Plugin\OrderTrackingCode"/>
     </type>
     <type name="Magento\Sales\Api\OrderRepositoryInterface">
-        <plugin name="get_sitef_nit" type="Vexpro\GerminiPay\Plugin\OrderGetNit"/>
+        <plugin name="get_payment_code" type="Vexpro\GerminiPay\Plugin\OrderPaymentCode"/>
+    </type>
+    <type name="Magento\Sales\Api\OrderRepositoryInterface">
+        <plugin name="get_payment_type" type="Vexpro\GerminiPay\Plugin\OrderPaymentType"/>
     </type>
     <type name="Magento\Sales\Api\OrderRepositoryInterface">
         <plugin name="pontos_usados_attribute" type="Vexpro\GerminiPay\Plugin\OrderGetPontos"/>

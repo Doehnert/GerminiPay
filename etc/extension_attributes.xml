@@ -3,9 +3,9 @@
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:noNamespaceSchemaLocation="urn:magento:framework:Api/etc/extension_attributes.xsd">
     <extension_attributes for="Magento\Sales\Api\Data\OrderInterface">
-        <attribute code="sitef_usn" type="string" />
-        <attribute code="sitef_token" type="string" />
-        <attribute code="sitef_nit" type="string" />
+        <attribute code="tracking_code" type="string" />
+        <attribute code="payment_code" type="string" />
+        <attribute code="payment_type" type="string" />
         <attribute code="pontos_usados" type="string" />
     </extension_attributes>
 </config>

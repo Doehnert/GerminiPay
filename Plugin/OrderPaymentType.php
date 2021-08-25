@@ -8,13 +8,12 @@ use Magento\Sales\Api\Data\OrderInterface;
 use Magento\Sales\Api\Data\OrderSearchResultInterface;
 use Magento\Sales\Api\OrderRepositoryInterface;
 
-class OrderGet
+class OrderPaymentType
 {
     /**
      * Order feedback field name
      */
-    const SITEF_USN = 'sitef_usn';
-    const SITEF_TOKEN = 'sitef_token';
+    const PAYMENT_TYPE = 'payment_type';
 
     /**
      * Order Extension Attributes Factory
@@ -43,12 +42,10 @@ class OrderGet
      */
     public function afterGet(OrderRepositoryInterface $subject, OrderInterface $order)
     {
-        $sitefUsn = $order->getData(self::SITEF_USN);
-        $sitefToken = $order->getData(self::SITEF_TOKEN);
+        $paymentType = $order->getData(self::PAYMENT_TYPE);
         $extensionAttributes = $order->getExtensionAttributes();
         $extensionAttributes = $extensionAttributes ? $extensionAttributes : $this->extensionFactory->create();
-        $extensionAttributes->setSitefUsn($sitefUsn);
-        $extensionAttributes->setSitefToken($sitefToken);
+        $extensionAttributes->setPaymentType($paymentType);
         $order->setExtensionAttributes($extensionAttributes);
 
         return $order;
@@ -67,12 +64,10 @@ class OrderGet
         $orders = $searchResult->getItems();
 
         foreach ($orders as &$order) {
-            $sitefUsn = $order->getData(self::SITEF_USN);
-            $sitefToken = $order->getData(self::SITEF_TOKEN);
+            $paymentType = $order->getData(self::PAYMENT_TYPE);
             $extensionAttributes = $order->getExtensionAttributes();
             $extensionAttributes = $extensionAttributes ? $extensionAttributes : $this->extensionFactory->create();
-            $extensionAttributes->setSitefUsn($sitefUsn);
-            $extensionAttributes->setSitefToken($sitefToken);
+            $extensionAttributes->setPaymentType($paymentType);
             $order->setExtensionAttributes($extensionAttributes);
         }
 
@@ -89,9 +84,8 @@ class OrderGet
         OrderInterface $quote
     ) {
         $extensionAttributes = $quote->getExtensionAttributes() ?: $this->extensionFactory->create();
-        if ($extensionAttributes !== null && $extensionAttributes->getSitefUsn() !== null) {
-            $quote->setSitefUsn($extensionAttributes->getSitefUsn());
-            $quote->setSitefToken($extensionAttributes->getSitefToken());
+        if ($extensionAttributes !== null && $extensionAttributes->getPaymentType() !== null) {
+            $quote->setPaymentType($extensionAttributes->getPaymentType());
         }
 
         return [$quote];
