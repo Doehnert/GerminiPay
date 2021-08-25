@@ -2,11 +2,8 @@
 
 namespace Vexpro\GerminiPay\Model;
 
-use Magento\Store\Model\ScopeInterface;
-use Magento\Quote\Api\Data\PaymentInterface;
 use Magento\Payment\Model\Method\AbstractMethod;
-use Magento\Payment\Model\Method\Cc;
-
+use phpDocumentor\Reflection\PseudoTypes\True_;
 
 class GerminiPay extends AbstractMethod
 {
@@ -23,7 +20,7 @@ class GerminiPay extends AbstractMethod
 
     protected $nit;
     protected $merchant_usn;
-    protected $sitef_usn;
+    protected $TRACKING_CODE;
     protected $cc_date;
     protected $cc_number;
     protected $authorizer_id;
@@ -32,16 +29,24 @@ class GerminiPay extends AbstractMethod
     protected $allOrders;
 
     protected $pontosCliente;
+    protected $saldoCliente;
     protected $totalSeed;
     protected $produtoSemPonto = false;
     protected $transactionId;
 
+    protected $orderTotalValue;
+    protected $grandTotal;
 
-    public function _construct(){
+
+    public function _construct()
+    {
         $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
         $customerSession = $objectManager->create('Magento\Customer\Model\Session');
 
         $customer = $customerSession->getCustomer();
+
+        $saldoCliente = $customer->getSaldoCliente();
+        $this->saldoCliente = $saldoCliente;
 
         $pontosCliente = $customer->getPontosCliente();
         $this->pontosCliente = $pontosCliente;
@@ -49,17 +54,18 @@ class GerminiPay extends AbstractMethod
         $cart = $objectManager->get('\Magento\Checkout\Model\Cart');
         $items = $cart->getQuote()->getAllItems();
 
+        $this->grandTotal = $cart->getQuote()->getGrandTotal();
+
         $totalPoints = 0;
-        foreach($items as $item)
-        {
+        foreach ($items as $item) {
             $productData = $objectManager->create('Magento\Catalog\Model\Product')->load($item->getProductId());
 
             //if (null !== ($item->getAdditionalData()))
             //{
-                $pointsRedeemed = (int) $productData->getPontosProduto();
-                if ($pointsRedeemed == 0)
-                    $this->produtoSemPonto = true;
-                $totalPoints += $pointsRedeemed;
+            $pointsRedeemed = (int) $productData->getPontosProduto();
+            if ($pointsRedeemed == 0)
+                $this->produtoSemPonto = true;
+            $totalPoints += $pointsRedeemed;
             //}
         }
         $this->totalSeed = $totalPoints;
@@ -69,15 +75,21 @@ class GerminiPay extends AbstractMethod
 
     public function isAvailable(\Magento\Quote\Api\Data\CartInterface $quote = null)
     {
-        if (!$this->isActive($quote ? $quote->getStoreId() : null)){
+        if (!$this->isActive($quote ? $quote->getStoreId() : null)) {
             return false;
         }
-        if ($this->produtoSemPonto == true){
-            return false;
+        $flag_available = false;
+        if ($this->produtoSemPonto == false && $this->pontosCliente >= $this->totalSeed) {
+            $flag_available = true;
         }
-        if ($this->pontosCliente < $this->totalSeed){
-            return false;
+
+        if ($this->saldoCliente < $this->grandTotal) {
+            $flag_available = true;
         }
+        return $flag_available;
+        // if ($this->pontosCliente < $this->totalSeed) {
+        //     return false;
+        // }
 
         return true;
     }
@@ -86,7 +98,7 @@ class GerminiPay extends AbstractMethod
     {
         parent::validate();
 
-        if ($this->pontosCliente < $this->totalSeed){
+        if ($this->pontosCliente < $this->totalSeed) {
             throw new \Magento\Framework\Exception\LocalizedException(
                 __('você não possuí pontos suficientes')
             );
@@ -97,7 +109,8 @@ class GerminiPay extends AbstractMethod
 
     public function getTitle()
     {
-        return $this->getConfigData('title') . " (Você possui: SD " . $this->pontosCliente . ")". "  (Será usado: SD " . $this->totalSeed . ")";
+        // return $this->getConfigData('title') . " \n (Você possui: SD " . $this->pontosCliente . ")" . "  (Será usado: SD " . $this->totalSeed . ") \n  Você possui saldo de: R$ " . $this->saldoCliente;
+        return "{$this->getConfigData('title')}: Você possui SD {$this->pontosCliente} e Saldo R$ {$this->saldoCliente}";
     }
 
     /**
@@ -132,7 +145,8 @@ class GerminiPay extends AbstractMethod
             // seguir com a integração no Germini
             $date = gmdate("Y-m-d\TH:i:s\Z");
 
-            function getRandomString($n) {
+            function getRandomString($n)
+            {
                 $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
                 $randomString = '';
 
@@ -154,15 +168,12 @@ class GerminiPay extends AbstractMethod
             $customerName = $customer->getFirstName();
             $customerLastName = $customer->getLastName();
             $customerCPFCNPJ = $customer->getTaxvat();
-
-
-            // "code" => $this->merchant_usn,
-
+            $partnercnpj = $scopeConfig->getValue('acessos/general/partnercnpj', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
 
             $params = [
                 "date" => $date,
                 "code" => $order->getIncrementId(),
-                "partnerCNPJ" => 70300299000185,
+                "partnerCNPJ" => $partnercnpj,
                 "activitySector" => "ecommerce",
                 "consumerCPFCNPJ" => (int) preg_replace("/[^0-9]/", "", $customerCPFCNPJ),
                 "consumerName" => $customerName . ' ' . $customerLastName,
@@ -175,10 +186,10 @@ class GerminiPay extends AbstractMethod
                 "invoiceItems" => $this->allOrders
             ];
 
-            $response = $this->makeGerminiRequest($params);
+            // $response = $this->makeGerminiRequest($params);
 
             // if ($order->getGrandTotal() == 0){
-                //$payment->setIsTransactionClosed(1);
+            //$payment->setIsTransactionClosed(1);
 
             $payment->setTransactionId($this->transactionId);
             $payment->setIsTransactionClosed(1);
@@ -227,7 +238,7 @@ class GerminiPay extends AbstractMethod
             //make API request to credit card processor.
             $dados = $this->makeCaptureRequest($params);
 
-            $order->setSitefUsn($this->sitef_usn);
+            $order->setSitefUsn($this->TRACKING_CODE);
 
             //transaction is done.
             $payment->setIsTransactionClosed(1);
@@ -238,7 +249,7 @@ class GerminiPay extends AbstractMethod
         return $this;
     }
 
-    public function makeGerminiRedemption($totalPoints, $password)
+    public function makeGerminiRedemption($totalPoints, $password, $paymenttype, $order)
     {
         try {
             $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
@@ -253,15 +264,27 @@ class GerminiPay extends AbstractMethod
             $customer = $objectManager->get('Magento\Customer\Api\CustomerRepositoryInterface')->getById($this->customer_id);
             $customerCPFCNPJ = $customer->getTaxvat();
 
+            $partnercnpj = $scopeConfig->getValue('acessos/general/partnercnpj', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+
+            // PaymentTipe: 1 - ponto; 2 - saldo carteira.
+
+            $paymentValue = $paymenttype == 1 ? $this->totalSeed : $this->orderTotalValue;
+
             $params = [
                 "consumerCPF" => (int) preg_replace("/[^0-9]/", "", $customerCPFCNPJ),
-                "consumerPassword" => $password,
-                "partnerCNPJ" => "70300299000185",
-                "totalPoints" => $this->totalSeed
+                "partnerCNPJ" => $partnercnpj,
+                "value" => $paymentValue,
+                "PaymentType" => $paymenttype
             ];
+            // $params = [
+            //     "consumerCPF" => (int) preg_replace("/[^0-9]/", "", $customerCPFCNPJ),
+            //     "consumerPassword" => $password,
+            //     "partnerCNPJ" => $partnercnpj,
+            //     "totalPoints" => $this->totalSeed
+            // ];
 
             $data_json = json_encode($params);
-            $url = "{$url_base}/api/Transaction/CreateTransactionRedemption";
+            $url = "{$url_base}/api/DigitalWallet/CreateRedemption";
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, $url);
             curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
@@ -271,14 +294,57 @@ class GerminiPay extends AbstractMethod
                 "Authorization: bearer {$germiniToken}"
             ));
             $response  = curl_exec($ch);
+            $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);
-            $dados = json_decode($response);
-            if (!$response) {
-                $logger->info('Erro na integracao germini');
-                throw new \Magento\Framework\Exception\LocalizedException(__('Failed integrationg with Germini.'));
+
+            if ($httpcode != 200) {
+                $logger->info('Saldo insuficiente');
+                throw new \Magento\Framework\Exception\LocalizedException(__('Saldo insuficiente.'));
             }
-            if (null !== $dados->errors){
-                $logger->info('Erro na integracao germini');
+
+            $dados = json_decode($response);
+
+            $trackingCode = $dados->data->operationId;
+
+            $order->setTrackingCode($trackingCode);
+
+            $params = [
+                "consumerCPF" => (int) preg_replace("/[^0-9]/", "", $customerCPFCNPJ),
+                "partnerCNPJ" => $partnercnpj,
+                "trackingCode" => $trackingCode,
+                "capture" => true,
+                "paymentType" => $paymenttype,
+                "value" => $paymentValue,
+                "ApprovalChannel" => 1
+            ];
+
+            $paymentCode = $dados->data->code;
+            $order->setPaymentCode($paymentCode);
+            $order->setPaymentType($paymenttype);
+
+            $data_json = json_encode($params);
+            $url = "{$url_base}/api/DigitalWallet/ValidateRedemption";
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+                'Content-Type: application/json',
+                "Authorization: bearer {$germiniToken}"
+            ));
+            $response  = curl_exec($ch);
+
+            $dados = json_decode($response);
+
+            $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            if ($httpcode != 200) {
+                $logger->info('Saldo insuficiente');
+                throw new \Magento\Framework\Exception\LocalizedException(__('Saldo insuficiente.'));
+            }
+            if (null !== $dados->errors) {
+                $logger->info('Saldo insuficiente');
                 $messageManager = $objectManager->create('Magento\Framework\Message\ManagerInterface');
                 $messageManager->addError("Erro ao autenticar no Magento");
                 throw new \Magento\Framework\Exception\LocalizedException(__($dados->errors[0]->message));
@@ -286,12 +352,19 @@ class GerminiPay extends AbstractMethod
             }
             $logger->info("{$customerCPFCNPJ} -> resgate de SD {$this->totalSeed}");
 
-            $novoValorPontos = $this->pontosCliente - $this->totalSeed;
             $customer = $customerSession->getCustomer();
-            $customer->setPontosCliente($novoValorPontos);
-            $this->transactionId = $dados->data->transactionId;
-            $customer->save();
+            $customerSession->setSapEdit(false);
+            if ($paymenttype == 1) {
+                $novoValorPontos = $this->pontosCliente - $this->totalSeed;
+                $customer->setPontosCliente($novoValorPontos);
+            } else {
+                $novoValorSaldo = $this->saldoCliente - $this->orderTotalValue;
+                $customer->setSaldoCliente($novoValorSaldo);
+            }
 
+            $this->transactionId = $dados->data->operationId;
+            $customer->save();
+            $customerSession->setSapEdit(true);
         } catch (\Exception $e) {
             $this->debug($e->getMessage());
             $response = ['fail'];
@@ -354,6 +427,7 @@ class GerminiPay extends AbstractMethod
         // $parcelas = $payment->getAdditionalInformation('post_data_value')['additional_data']['parcelas'];
         // $cc_type = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_type'];
         $senha = $payment->getAdditionalInformation('post_data_value')['additional_data']['senha'];
+        $paymenttype = $payment->getAdditionalInformation('post_data_value')['additional_data']['paymentType'];
 
         $order = $payment->getOrder();
         $this->customer_id = $order->getCustomerId();
@@ -368,15 +442,14 @@ class GerminiPay extends AbstractMethod
         $items = $cart->getQuote()->getAllItems();
 
         $allOrders = [];
-        foreach($items as $item)
-        {
+        foreach ($items as $item) {
             $productData = $objectManager->create('Magento\Catalog\Model\Product')->load($item->getProductId());
             $totalPoints = 0;
             $pointsRedeemed = 0;
             //if (null !== ($item->getAdditionalData()))
             //{
-                $pointsRedeemed = (int) $productData->getPontosProduto();
-                $totalPoints += $pointsRedeemed;
+            $pointsRedeemed = (int) $productData->getPontosProduto();
+            $totalPoints += $pointsRedeemed;
             //}
 
             $newOrder = [
@@ -393,76 +466,82 @@ class GerminiPay extends AbstractMethod
             array_push($allOrders, $newOrder);
         }
         $this->allOrders = $allOrders;
+        $orderTotalValue = $order->getGrandTotal();
+        $this->orderTotalValue = $orderTotalValue;
 
-        if ($this->totalSeed > 0)
-        {
+        if ($this->totalSeed > 0 || $this->saldoCliente > $orderTotalValue) {
             try {
-                $this->makeGerminiRedemption($totalPoints, $senha);
-                $order->setPontosUsados($this->totalSeed);
-            }catch(\Exception $e){
-                throw new \Magento\Framework\Exception\LocalizedException(__('Falha no resgate de pontos, senha incorreta.'));
+                $this->makeGerminiRedemption($totalPoints, $senha, $paymenttype, $order);
+                if ($paymenttype == 1) {
+                    $order->setPontosUsados($this->totalSeed);
+                }
+            } catch (\Exception $e) {
+                throw new \Magento\Framework\Exception\LocalizedException(__('Falha no resgate de pontos, senha incorreta ou saldo insuficiente.'));
             }
         }
+
+        $payment->setIsTransactionClosed(1);
+        return $this;
 
         // Se pagamento apenas com pontos termina a transacao aqui
         // if ($order->getGrandTotal() == 0)
         // {
-            //$payment->setIsTransactionClosed(1);
-            return $this;
+        //$payment->setIsTransactionClosed(1);
+        // return $this;
         // }
 
         // 2) Authorize
-        $autorizadoras = array(
-            'AE' => 3,
-            'VI' => 1,
-            'MC' => 2,
-            'DI' => 44,
-            'JCB' => 43,
-            'DN' => 33
-        );
+        // $autorizadoras = array(
+        //     'AE' => 3,
+        //     'VI' => 1,
+        //     'MC' => 2,
+        //     'DI' => 44,
+        //     'JCB' => 43,
+        //     'DN' => 33
+        // );
 
-        $cc_type = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_type'];
+        // $cc_type = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_type'];
 
-        $authorizer_id = $autorizadoras[$cc_type];
-        $this->authorizer_id = $authorizer_id;
+        // $authorizer_id = $autorizadoras[$cc_type];
+        // $this->authorizer_id = $authorizer_id;
 
 
-        // 1) Criando a transação
+        // // 1) Criando a transação
 
-        try {
-            $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
-            $checkoutSession = $objectManager->get('Magento\Checkout\Model\Session');
-            $quote = $checkoutSession->getQuote();
-            $merchant_usn = $quote->getReservedOrderId();
-            $this->merchant_usn = $merchant_usn;
+        // try {
+        //     $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+        //     $checkoutSession = $objectManager->get('Magento\Checkout\Model\Session');
+        //     $quote = $checkoutSession->getQuote();
+        //     $merchant_usn = $quote->getReservedOrderId();
+        //     $this->merchant_usn = $merchant_usn;
 
-            $order = $payment->getOrder();
-            $totalCurrency = $order->getGrandTotal();
+        //     $order = $payment->getOrder();
+        //     $totalCurrency = $order->getGrandTotal();
 
-            $params = [
-                "merchant_usn" => $merchant_usn,
-                "order_id" => $merchant_usn,
-                "installments" => $parcelas,
-                "installment_type" => "4",
-                "authorizer_id" => $authorizer_id,
-                "amount" => $totalCurrency * 100,
-            ];
+        //     $params = [
+        //         "merchant_usn" => $merchant_usn,
+        //         "order_id" => $merchant_usn,
+        //         "installments" => $parcelas,
+        //         "installment_type" => "4",
+        //         "authorizer_id" => $authorizer_id,
+        //         "amount" => $totalCurrency * 100,
+        //     ];
 
-            $response = $this->makeAuthRequest($params);
-        } catch (\Exception $e) {
-            $this->debug($e->getMessage());
-        }
+        //     $response = $this->makeAuthRequest($params);
+        // } catch (\Exception $e) {
+        //     $this->debug($e->getMessage());
+        // }
 
-        if (isset($response['transactionId'])) {
-            // Set the transaction id on the payment so the capture request knows auth has happened.
-            $payment->setTransactionId($response['transactionId']);
-            $payment->setParentTransactionId($response['transactionId']);
-        }
+        // if (isset($response['transactionId'])) {
+        //     // Set the transaction id on the payment so the capture request knows auth has happened.
+        //     $payment->setTransactionId($response['transactionId']);
+        //     $payment->setParentTransactionId($response['transactionId']);
+        // }
 
-        //processing is not done yet.
-        $payment->setIsTransactionClosed(0);
+        // //processing is not done yet.
+        // $payment->setIsTransactionClosed(0);
 
-        return $this;
+        // return $this;
     }
 
     /**
@@ -581,8 +660,8 @@ class GerminiPay extends AbstractMethod
             curl_close($ch);
             $dados = json_decode($response);
 
-            $sitef_usn = $dados->payment->esitef_usn;
-            $this->sitef_usn = $sitef_usn;
+            $TRACKING_CODE = $dados->payment->eTRACKING_CODE;
+            $this->TRACKING_CODE = $TRACKING_CODE;
 
             //$response = ['success'];
             if (!$response) {
@@ -615,7 +694,7 @@ class GerminiPay extends AbstractMethod
 
         // ESTORNO DOS PONTOS USADOS NO GERMINI
         $order = $payment->getOrder();
-        $pontos_usados = $order->getPontosUsados();
+        $used_points = $order->getPontosUsados();
         $transactionId = $payment->getTransactionId();
 
         $transactionId = explode("-", $transactionId);
@@ -652,10 +731,9 @@ class GerminiPay extends AbstractMethod
                 throw new \Magento\Framework\Exception\LocalizedException(__('Falha no estorno dos pontos'));
             }
 
-            $logger->info("Estornado {$pontos_usados} para a transação ID: {$transactionId}");
+            $logger->info("Estornado {$used_points} para a transação ID: {$transactionId}");
             $messageManager = $objectManager->create('Magento\Framework\Message\ManagerInterface');
-            $messageManager->addSuccess("Estornado SD {$pontos_usados} para a transação ID: {$transactionId}");
-
+            $messageManager->addSuccess("Estornado SD {$used_points} para a transação ID: {$transactionId}");
         } catch (\Exception $e) {
             $this->debug($e->getMessage());
         }
@@ -665,13 +743,13 @@ class GerminiPay extends AbstractMethod
         // $merchant_key = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_key', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
 
         // $order = $payment->getOrder();
-        // $sitef_usn = $order->getSitefUsn();
+        // $TRACKING_CODE = $order->getSitefUsn();
 
         // // 1) Criando a transação de cancelamento
         // $url = "{$esitef_url}/cancellations";
 
         // $params = [
-        //     "esitef_usn" => $sitef_usn,
+        //     "eTRACKING_CODE" => $TRACKING_CODE,
         // ];
 
         // try {

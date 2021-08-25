@@ -4,7 +4,7 @@
     <default>
         <payment>
             <Vexpro_GerminiPay>
-                <title>Germini Pay</title>
+                <title>Pontos ou Saldo da Carteira Digital</title>
                 <model>Vexpro\GerminiPay\Model\GerminiPay</model>
                 <active>1</active>
                 <cctypes>AE,VI,MC,DI</cctypes>
