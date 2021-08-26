@@ -329,7 +329,7 @@ class GerminiPay extends AbstractMethod
                 throw new \Magento\Framework\Exception\LocalizedException(__('Saldo insuficiente.'));
             }
             if (null !== $dados->errors) {
-                $logger->info('Saldo insuficiente');
+                $logger->info("Enviado ao germini: {$params}");
                 $messageManager = $objectManager->create('Magento\Framework\Message\ManagerInterface');
                 $messageManager->addError("Erro ao autenticar no Magento");
                 throw new \Magento\Framework\Exception\LocalizedException(__($dados->errors[0]->message));
