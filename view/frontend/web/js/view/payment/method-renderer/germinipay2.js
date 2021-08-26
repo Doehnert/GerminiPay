@@ -38,7 +38,7 @@ define([
     myGrandTotal: 0,
 
     defaults: {
-      template: 'Vexpro_GerminiPay/payment/germinipay',
+      template: 'Vexpro_GerminiPay/payment/germinipay2',
       num_parcelas: 5,
       token: '',
       merchant_id: '',
@@ -226,7 +226,7 @@ define([
     },
 
     getCode: function () {
-      return 'Vexpro_GerminiPay'
+      return 'Vexpro_GerminiPay2'
     },
 
     isActive: function () {

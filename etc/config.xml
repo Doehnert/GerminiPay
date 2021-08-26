@@ -4,14 +4,20 @@
     <default>
         <payment>
             <Vexpro_GerminiPay>
-                <title>Pontos ou Saldo da Carteira Digital</title>
+                <title>Pagar com Pontos (SD)</title>
                 <model>Vexpro\GerminiPay\Model\GerminiPay</model>
                 <active>1</active>
                 <cctypes>AE,VI,MC,DI</cctypes>
                 <parcelas>12</parcelas>
                 <esitef_url>https://esitef-homologacao.softwareexpress.com.br/e-sitef/api/v1</esitef_url>
             </Vexpro_GerminiPay>
+            <Vexpro_GerminiPay2>
+                <model>Vexpro\GerminiPay\Model\GerminiPay2</model>
+                <active>1</active>
+                <title>Pagar com Saldo da Carteira digital</title>
+            </Vexpro_GerminiPay2>
         </payment>
+
     </default>
 </config>
 

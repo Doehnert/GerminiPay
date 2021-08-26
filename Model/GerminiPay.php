@@ -8,14 +8,15 @@ use phpDocumentor\Reflection\PseudoTypes\True_;
 class GerminiPay extends AbstractMethod
 {
     const CODE = 'Vexpro_GerminiPay';
+    const PAYMENT_TYPE = 1;
 
     protected $_code = self::CODE;
 
     protected $_canAuthorize = true;
     protected $_canCapture = true;
-    protected $_canRefund = true;
+    // protected $_canRefund = true;
     protected $_isGateway = true;
-    protected $_canVoid = true;
+    // protected $_canVoid = true;
     protected $_canCancel = true;
 
     protected $nit;
@@ -83,15 +84,7 @@ class GerminiPay extends AbstractMethod
             $flag_available = true;
         }
 
-        if ($this->saldoCliente < $this->grandTotal) {
-            $flag_available = true;
-        }
         return $flag_available;
-        // if ($this->pontosCliente < $this->totalSeed) {
-        //     return false;
-        // }
-
-        return true;
     }
 
     public function validate()
@@ -109,8 +102,10 @@ class GerminiPay extends AbstractMethod
 
     public function getTitle()
     {
-        // return $this->getConfigData('title') . " \n (Você possui: SD " . $this->pontosCliente . ")" . "  (Será usado: SD " . $this->totalSeed . ") \n  Você possui saldo de: R$ " . $this->saldoCliente;
-        return "{$this->getConfigData('title')}: Você possui SD {$this->pontosCliente} e Saldo R$ {$this->saldoCliente}";
+        $pointsFormatted = number_format(floatval($this->pontosCliente), 0, ',', '.');
+        $totalFormatted = number_format(floatval($this->totalSeed), 0, ',', '.');
+
+        return "Pagar com Pontos: Você possui SD {$pointsFormatted} - Será usado SD {$totalFormatted}";
     }
 
     /**
@@ -136,120 +131,121 @@ class GerminiPay extends AbstractMethod
      */
     public function capture(\Magento\Payment\Model\InfoInterface $payment, $amount)
     {
-        //check if payment has been authorized
-        if (is_null($payment->getParentTransactionId())) {
-            $this->authorize($payment, $amount);
-        }
-        try {
-            // Caso o pagamento seja concluído segue para a API Invoice que irá
-            // seguir com a integração no Germini
-            $date = gmdate("Y-m-d\TH:i:s\Z");
-
-            function getRandomString($n)
-            {
-                $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
-                $randomString = '';
-
-                for ($i = 0; $i < $n; $i++) {
-                    $index = rand(0, strlen($characters) - 1);
-                    $randomString .= $characters[$index];
-                }
-
-                return $randomString;
-            }
-
-            $order = $payment->getOrder();
-            $total = $order->getBaseGrandTotal();
-            $totalCurrency = $order->getGrandTotal();
-
-            $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
-            $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
-            $customer = $objectManager->get('Magento\Customer\Api\CustomerRepositoryInterface')->getById($this->customer_id);
-            $customerName = $customer->getFirstName();
-            $customerLastName = $customer->getLastName();
-            $customerCPFCNPJ = $customer->getTaxvat();
-            $partnercnpj = $scopeConfig->getValue('acessos/general/partnercnpj', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
-
-            $params = [
-                "date" => $date,
-                "code" => $order->getIncrementId(),
-                "partnerCNPJ" => $partnercnpj,
-                "activitySector" => "ecommerce",
-                "consumerCPFCNPJ" => (int) preg_replace("/[^0-9]/", "", $customerCPFCNPJ),
-                "consumerName" => $customerName . ' ' . $customerLastName,
-                "total" => $total,
-                "totalCurrency" => $totalCurrency,
-                "documentID" => getRandomString(3),
-                "documentKey" => getRandomString(3),
-                "documentOperation" => 1,
-                "channelTypeId" => 2,
-                "invoiceItems" => $this->allOrders
-            ];
-
-            // $response = $this->makeGerminiRequest($params);
-
-            // if ($order->getGrandTotal() == 0){
-            //$payment->setIsTransactionClosed(1);
-
-            $payment->setTransactionId($this->transactionId);
-            $payment->setIsTransactionClosed(1);
-            return $this;
-            // }
-
-            $cc_exp_month = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_exp_month'];
-            $cc_exp_year = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_exp_year'];
-            $cc_number = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_number'];
-            $this->cc_number = $cc_number;
-            $cc_cid = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_cid'];
-            $cpf_titular = $payment->getAdditionalInformation('post_data_value')['additional_data']['cpf'];
-            $nome_titular = $payment->getAdditionalInformation('post_data_value')['additional_data']['nome'];
-
-            // Configura expdate no formato MMAA
-            $cc_date = $cc_exp_year . "-" . $cc_exp_month;
-            $format = 'Y-m';
-            $date = date_create_from_format($format, $cc_date);
-            $expdate = date_format($date, "my");
-            $this->expdate = $expdate;
-
-            // Cria os parametros para o armazenamento de cartao REST
-            $params = [
-                "card" => [
-                    "expiry_date" => $this->expdate,
-                    "number" => $this->cc_number
-                ],
-                "authorizer_id" => $this->authorizer_id,
-                "merchant_usn" => $this->merchant_usn,
-                "customer_id" => $this->customer_id
-            ];
-
-            $response = $this->makeStoreCardRequest($params);
-
-            $order->setSitefToken($response['token']);
-            $this->token = $response['token'];
-
-            //build array of payment data for API request.
-            $params = [
-                "card" => [
-                    "token" => $response['token'],
-                    "security_code" => $cc_cid
-                ],
-            ];
-
-            //make API request to credit card processor.
-            $dados = $this->makeCaptureRequest($params);
-
-            $order->setSitefUsn($this->TRACKING_CODE);
-
-            //transaction is done.
-            $payment->setIsTransactionClosed(1);
-        } catch (\Exception $e) {
-            $this->debug($e->getMessage());
-        }
-
-        return $this;
+        //     //check if payment has been authorized
+        //     if (is_null($payment->getParentTransactionId())) {
+        $this->authorize($payment, $amount);
     }
+    //     }
+    //     try {
+    //         // Caso o pagamento seja concluído segue para a API Invoice que irá
+    //         // seguir com a integração no Germini
+    //         $date = gmdate("Y-m-d\TH:i:s\Z");
 
-    public function makeGerminiRedemption($totalPoints, $password, $paymenttype, $order)
+    //         function getRandomString($n)
+    //         {
+    //             $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    //             $randomString = '';
+
+    //             for ($i = 0; $i < $n; $i++) {
+    //                 $index = rand(0, strlen($characters) - 1);
+    //                 $randomString .= $characters[$index];
+    //             }
+
+    //             return $randomString;
+    //         }
+
+    //         $order = $payment->getOrder();
+    //         $total = $order->getBaseGrandTotal();
+    //         $totalCurrency = $order->getGrandTotal();
+
+    //         $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+    //         $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
+    //         $customer = $objectManager->get('Magento\Customer\Api\CustomerRepositoryInterface')->getById($this->customer_id);
+    //         $customerName = $customer->getFirstName();
+    //         $customerLastName = $customer->getLastName();
+    //         $customerCPFCNPJ = $customer->getTaxvat();
+    //         $partnercnpj = $scopeConfig->getValue('acessos/general/partnercnpj', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+
+    //         $params = [
+    //             "date" => $date,
+    //             "code" => $order->getIncrementId(),
+    //             "partnerCNPJ" => $partnercnpj,
+    //             "activitySector" => "ecommerce",
+    //             "consumerCPFCNPJ" => (int) preg_replace("/[^0-9]/", "", $customerCPFCNPJ),
+    //             "consumerName" => $customerName . ' ' . $customerLastName,
+    //             "total" => $total,
+    //             "totalCurrency" => $totalCurrency,
+    //             "documentID" => getRandomString(3),
+    //             "documentKey" => getRandomString(3),
+    //             "documentOperation" => 1,
+    //             "channelTypeId" => 2,
+    //             "invoiceItems" => $this->allOrders
+    //         ];
+
+    //         // $response = $this->makeGerminiRequest($params);
+
+    //         // if ($order->getGrandTotal() == 0){
+    //         //$payment->setIsTransactionClosed(1);
+
+    //         $payment->setTransactionId($this->transactionId);
+    //         $payment->setIsTransactionClosed(1);
+    //         return $this;
+    //         // }
+
+    //         $cc_exp_month = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_exp_month'];
+    //         $cc_exp_year = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_exp_year'];
+    //         $cc_number = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_number'];
+    //         $this->cc_number = $cc_number;
+    //         $cc_cid = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_cid'];
+    //         $cpf_titular = $payment->getAdditionalInformation('post_data_value')['additional_data']['cpf'];
+    //         $nome_titular = $payment->getAdditionalInformation('post_data_value')['additional_data']['nome'];
+
+    //         // Configura expdate no formato MMAA
+    //         $cc_date = $cc_exp_year . "-" . $cc_exp_month;
+    //         $format = 'Y-m';
+    //         $date = date_create_from_format($format, $cc_date);
+    //         $expdate = date_format($date, "my");
+    //         $this->expdate = $expdate;
+
+    //         // Cria os parametros para o armazenamento de cartao REST
+    //         $params = [
+    //             "card" => [
+    //                 "expiry_date" => $this->expdate,
+    //                 "number" => $this->cc_number
+    //             ],
+    //             "authorizer_id" => $this->authorizer_id,
+    //             "merchant_usn" => $this->merchant_usn,
+    //             "customer_id" => $this->customer_id
+    //         ];
+
+    //         $response = $this->makeStoreCardRequest($params);
+
+    //         $order->setSitefToken($response['token']);
+    //         $this->token = $response['token'];
+
+    //         //build array of payment data for API request.
+    //         $params = [
+    //             "card" => [
+    //                 "token" => $response['token'],
+    //                 "security_code" => $cc_cid
+    //             ],
+    //         ];
+
+    //         //make API request to credit card processor.
+    //         $dados = $this->makeCaptureRequest($params);
+
+    //         $order->setSitefUsn($this->TRACKING_CODE);
+
+    //         //transaction is done.
+    //         $payment->setIsTransactionClosed(1);
+    //     } catch (\Exception $e) {
+    //         $this->debug($e->getMessage());
+    //     }
+
+    //     return $this;
+    // }
+
+    public function makeGerminiRedemption($order)
     {
         try {
             $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
@@ -266,22 +262,13 @@ class GerminiPay extends AbstractMethod
 
             $partnercnpj = $scopeConfig->getValue('acessos/general/partnercnpj', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
 
-            // PaymentTipe: 1 - ponto; 2 - saldo carteira.
-
-            $paymentValue = $paymenttype == 1 ? $this->totalSeed : $this->orderTotalValue;
 
             $params = [
                 "consumerCPF" => (int) preg_replace("/[^0-9]/", "", $customerCPFCNPJ),
                 "partnerCNPJ" => $partnercnpj,
-                "value" => $paymentValue,
-                "PaymentType" => $paymenttype
+                "value" => $this->totalSeed,
+                "PaymentType" => $this::PAYMENT_TYPE
             ];
-            // $params = [
-            //     "consumerCPF" => (int) preg_replace("/[^0-9]/", "", $customerCPFCNPJ),
-            //     "consumerPassword" => $password,
-            //     "partnerCNPJ" => $partnercnpj,
-            //     "totalPoints" => $this->totalSeed
-            // ];
 
             $data_json = json_encode($params);
             $url = "{$url_base}/api/DigitalWallet/CreateRedemption";
@@ -303,9 +290,7 @@ class GerminiPay extends AbstractMethod
             }
 
             $dados = json_decode($response);
-
             $trackingCode = $dados->data->operationId;
-
             $order->setTrackingCode($trackingCode);
 
             $params = [
@@ -313,14 +298,14 @@ class GerminiPay extends AbstractMethod
                 "partnerCNPJ" => $partnercnpj,
                 "trackingCode" => $trackingCode,
                 "capture" => true,
-                "paymentType" => $paymenttype,
-                "value" => $paymentValue,
+                "paymentType" => $this::PAYMENT_TYPE,
+                "value" => $this->totalSeed,
                 "ApprovalChannel" => 1
             ];
 
             $paymentCode = $dados->data->code;
             $order->setPaymentCode($paymentCode);
-            $order->setPaymentType($paymenttype);
+            $order->setPaymentType($this::PAYMENT_TYPE);
 
             $data_json = json_encode($params);
             $url = "{$url_base}/api/DigitalWallet/ValidateRedemption";
@@ -354,13 +339,8 @@ class GerminiPay extends AbstractMethod
 
             $customer = $customerSession->getCustomer();
             $customerSession->setSapEdit(false);
-            if ($paymenttype == 1) {
-                $novoValorPontos = $this->pontosCliente - $this->totalSeed;
-                $customer->setPontosCliente($novoValorPontos);
-            } else {
-                $novoValorSaldo = $this->saldoCliente - $this->orderTotalValue;
-                $customer->setSaldoCliente($novoValorSaldo);
-            }
+            $novoValorPontos = $this->pontosCliente - $this->totalSeed;
+            $customer->setPontosCliente($novoValorPontos);
 
             $this->transactionId = $dados->data->operationId;
             $customer->save();
@@ -372,43 +352,43 @@ class GerminiPay extends AbstractMethod
         return $dados;
     }
 
-    public function makeGerminiRequest($params)
-    {
-        try {
-            $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
-            $logger = $objectManager->create('\Psr\Log\LoggerInterface');
+    // public function makeGerminiRequest($params)
+    // {
+    //     try {
+    //         $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+    //         $logger = $objectManager->create('\Psr\Log\LoggerInterface');
 
-            $customerSession = $objectManager->get('\Magento\Customer\Model\Session');
-            $germiniToken = $customerSession->getCustomerToken();
+    //         $customerSession = $objectManager->get('\Magento\Customer\Model\Session');
+    //         $germiniToken = $customerSession->getCustomerToken();
 
 
-            $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
+    //         $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
 
-            $url_base = $scopeConfig->getValue('acessos/general/kernel_url', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+    //         $url_base = $scopeConfig->getValue('acessos/general/kernel_url', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
 
-            $data_json = json_encode($params);
-            $url = "{$url_base}/api/Invoice";
-            $ch = curl_init();
-            curl_setopt($ch, CURLOPT_URL, $url);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-                "Content-Type: application/json",
-                "Authorization: bearer {$germiniToken}"
-            ));
-            $response  = curl_exec($ch);
-            curl_close($ch);
-            $resposta = json_decode($response);
-            if (!$response || $resposta->success != true) {
-                $logger->info("Consumidor CPF: {$params['consumerCPFCNPJ']} -> Falha na integração com o Germini");
-                throw new \Magento\Framework\Exception\LocalizedException(__('Falha na integração com o Germini'));
-            }
-        } catch (\Exception $e) {
-            $this->debug($e->getMessage());
-            $response = ['fail'];
-        }
-        return $resposta;
-    }
+    //         $data_json = json_encode($params);
+    //         $url = "{$url_base}/api/Invoice";
+    //         $ch = curl_init();
+    //         curl_setopt($ch, CURLOPT_URL, $url);
+    //         curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
+    //         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    //         curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+    //             "Content-Type: application/json",
+    //             "Authorization: bearer {$germiniToken}"
+    //         ));
+    //         $response  = curl_exec($ch);
+    //         curl_close($ch);
+    //         $resposta = json_decode($response);
+    //         if (!$response || $resposta->success != true) {
+    //             $logger->info("Consumidor CPF: {$params['consumerCPFCNPJ']} -> Falha na integração com o Germini");
+    //             throw new \Magento\Framework\Exception\LocalizedException(__('Falha na integração com o Germini'));
+    //         }
+    //     } catch (\Exception $e) {
+    //         $this->debug($e->getMessage());
+    //         $response = ['fail'];
+    //     }
+    //     return $resposta;
+    // }
 
     /**
      * Authorize a payment.
@@ -426,57 +406,55 @@ class GerminiPay extends AbstractMethod
         // $nome = $payment->getAdditionalInformation('post_data_value')['additional_data']['nome'];
         // $parcelas = $payment->getAdditionalInformation('post_data_value')['additional_data']['parcelas'];
         // $cc_type = $payment->getAdditionalInformation('post_data_value')['additional_data']['cc_type'];
-        $senha = $payment->getAdditionalInformation('post_data_value')['additional_data']['senha'];
-        $paymenttype = $payment->getAdditionalInformation('post_data_value')['additional_data']['paymentType'];
+        // $senha = $payment->getAdditionalInformation('post_data_value')['additional_data']['senha'];
+        // $paymenttype = $payment->getAdditionalInformation('post_data_value')['additional_data']['paymentType'];
 
         $order = $payment->getOrder();
         $this->customer_id = $order->getCustomerId();
         // 1) Verifica no Germini através da API CreateTransactionRedemption se
         // o usuário tem a pontuação requerida para resgate.
-        $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
-        $cart = $objectManager->get('\Magento\Checkout\Model\Cart');
-        $customer = $objectManager->get('Magento\Customer\Api\CustomerRepositoryInterface')->getById($this->customer_id);
-        $customerCPFCNPJ = $customer->getTaxvat();
-        $customerName = $customer->getFirstName();
-        $customerLastName = $customer->getLastName();
-        $items = $cart->getQuote()->getAllItems();
+        // $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+        // $cart = $objectManager->get('\Magento\Checkout\Model\Cart');
+        // $customer = $objectManager->get('Magento\Customer\Api\CustomerRepositoryInterface')->getById($this->customer_id);
+        // $customerCPFCNPJ = $customer->getTaxvat();
+        // $customerName = $customer->getFirstName();
+        // $customerLastName = $customer->getLastName();
+        // $items = $cart->getQuote()->getAllItems();
 
-        $allOrders = [];
-        foreach ($items as $item) {
-            $productData = $objectManager->create('Magento\Catalog\Model\Product')->load($item->getProductId());
-            $totalPoints = 0;
-            $pointsRedeemed = 0;
-            //if (null !== ($item->getAdditionalData()))
-            //{
-            $pointsRedeemed = (int) $productData->getPontosProduto();
-            $totalPoints += $pointsRedeemed;
-            //}
+        // $allOrders = [];
+        // foreach ($items as $item) {
+        //     $productData = $objectManager->create('Magento\Catalog\Model\Product')->load($item->getProductId());
+        //     $totalPoints = 0;
+        //     $pointsRedeemed = 0;
+        //     //if (null !== ($item->getAdditionalData()))
+        //     //{
+        //     $pointsRedeemed = (int) $productData->getPontosProduto();
+        //     $totalPoints += $pointsRedeemed;
+        //     //}
 
-            $newOrder = [
-                "code" => $item->getSku(),
-                "description" => $productData->getName(),
-                "quantity" => $item->getQty(),
-                "unitPrice" => $item->getBasePrice(),
-                "totalPrice" => $item->getPrice() * $item->getQty(),
-                "unity" => $productData->getUnidade(),
-                "pointsRedeemed" => $pointsRedeemed,
-                "pointsRedeemedDiscount" => 0
-            ];
+        //     $newOrder = [
+        //         "code" => $item->getSku(),
+        //         "description" => $productData->getName(),
+        //         "quantity" => $item->getQty(),
+        //         "unitPrice" => $item->getBasePrice(),
+        //         "totalPrice" => $item->getPrice() * $item->getQty(),
+        //         "unity" => $productData->getUnidade(),
+        //         "pointsRedeemed" => $pointsRedeemed,
+        //         "pointsRedeemedDiscount" => 0
+        //     ];
 
-            array_push($allOrders, $newOrder);
-        }
-        $this->allOrders = $allOrders;
+        //     array_push($allOrders, $newOrder);
+        // }
+        // $this->allOrders = $allOrders;
         $orderTotalValue = $order->getGrandTotal();
         $this->orderTotalValue = $orderTotalValue;
 
         if ($this->totalSeed > 0 || $this->saldoCliente > $orderTotalValue) {
             try {
-                $this->makeGerminiRedemption($totalPoints, $senha, $paymenttype, $order);
-                if ($paymenttype == 1) {
-                    $order->setPontosUsados($this->totalSeed);
-                }
+                $this->makeGerminiRedemption($order);
+                $order->setPontosUsados($this->totalSeed);
             } catch (\Exception $e) {
-                throw new \Magento\Framework\Exception\LocalizedException(__('Falha no resgate de pontos, senha incorreta ou saldo insuficiente.'));
+                throw new \Magento\Framework\Exception\LocalizedException(__('Falha no resgate de pontos.'));
             }
         }
 
@@ -554,36 +532,36 @@ class GerminiPay extends AbstractMethod
         return self::ACTION_AUTHORIZE_CAPTURE;
     }
 
-    public function makeStoreCardRequest($params)
-    {
-        $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
-        $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
-        $esitef_url = $scopeConfig->getValue('payment/Vexpro_GerminiPay/esitef_url', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
-        $merchant_id = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_id', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
-        $merchant_key = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_key', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+    // public function makeStoreCardRequest($params)
+    // {
+    //     $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+    //     $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
+    //     $esitef_url = $scopeConfig->getValue('payment/Vexpro_GerminiPay/esitef_url', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+    //     $merchant_id = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_id', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+    //     $merchant_key = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_key', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
 
-        $data_json = json_encode($params);
-        $url = $esitef_url . '/cards';
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-            'Content-Type: application/json',
-            'merchant_id: ' . $merchant_id,
-            'merchant_key: ' . $merchant_key
-        ));
+    //     $data_json = json_encode($params);
+    //     $url = $esitef_url . '/cards';
+    //     $ch = curl_init();
+    //     curl_setopt($ch, CURLOPT_URL, $url);
+    //     curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+    //         'Content-Type: application/json',
+    //         'merchant_id: ' . $merchant_id,
+    //         'merchant_key: ' . $merchant_key
+    //     ));
 
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    //     curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
+    //     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
-        $response  = curl_exec($ch);
-        curl_close($ch);
-        $dados = json_decode($response);
-        $this->token = $dados->card->token;
+    //     $response  = curl_exec($ch);
+    //     curl_close($ch);
+    //     $dados = json_decode($response);
+    //     $this->token = $dados->card->token;
 
-        $response = ['token' => $dados->card->token];
+    //     $response = ['token' => $dados->card->token];
 
-        return $response;
-    }
+    //     return $response;
+    // }
 
     /**
      * Method to handle an API call for authorization request.
@@ -592,40 +570,40 @@ class GerminiPay extends AbstractMethod
      * @return array
      * @throws \Magento\Framework\Exception\LocalizedException
      */
-    public function makeAuthRequest($params)
-    {
-        $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
-        $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
-        $esitef_url = $scopeConfig->getValue('payment/Vexpro_GerminiPay/esitef_url', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
-        $merchant_id = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_id', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
-        $merchant_key = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_key', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+    // public function makeAuthRequest($params)
+    // {
+    //     $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+    //     $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
+    //     $esitef_url = $scopeConfig->getValue('payment/Vexpro_GerminiPay/esitef_url', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+    //     $merchant_id = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_id', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+    //     $merchant_key = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_key', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
 
-        $data_json = json_encode($params);
-        $url = $esitef_url . '/transactions';
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-            'Content-Type: application/json',
-            'merchant_id: ' . $merchant_id,
-            'merchant_key: ' . $merchant_key
-        ));
+    //     $data_json = json_encode($params);
+    //     $url = $esitef_url . '/transactions';
+    //     $ch = curl_init();
+    //     curl_setopt($ch, CURLOPT_URL, $url);
+    //     curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+    //         'Content-Type: application/json',
+    //         'merchant_id: ' . $merchant_id,
+    //         'merchant_key: ' . $merchant_key
+    //     ));
 
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    //     curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
+    //     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
-        $response  = curl_exec($ch);
-        curl_close($ch);
-        $dados = json_decode($response);
-        $nit = $dados->payment->nit;
-        $this->nit = $nit;
+    //     $response  = curl_exec($ch);
+    //     curl_close($ch);
+    //     $dados = json_decode($response);
+    //     $nit = $dados->payment->nit;
+    //     $this->nit = $nit;
 
-        $response = ['transactionId' => $nit]; //todo implement API call for auth request.
-        if (!$response) {
-            throw new \Magento\Framework\Exception\LocalizedException(__('Failed auth request.'));
-        }
+    //     $response = ['transactionId' => $nit]; //todo implement API call for auth request.
+    //     if (!$response) {
+    //         throw new \Magento\Framework\Exception\LocalizedException(__('Failed auth request.'));
+    //     }
 
-        return $response;
-    }
+    //     return $response;
+    // }
 
     /**
      * Test method to handle an API call for capture request.
@@ -634,45 +612,45 @@ class GerminiPay extends AbstractMethod
      * @return array
      * @throws \Magento\Framework\Exception\LocalizedException
      */
-    public function makeCaptureRequest($params)
-    {
-        $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
-        $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
-        $esitef_url = $scopeConfig->getValue('payment/Vexpro_GerminiPay/esitef_url', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
-        $merchant_id = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_id', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
-        $merchant_key = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_key', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
-        // 2) Efetuando o pagamento
-        try {
-            $data_json = json_encode($params);
-            $url = "{$esitef_url}/payments/{$this->nit}";
-            $ch = curl_init();
-            curl_setopt($ch, CURLOPT_URL, $url);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-                'Content-Type: application/json',
-                'merchant_id: ' . $merchant_id,
-                'merchant_key: ' . $merchant_key
-            ));
+    // public function makeCaptureRequest($params)
+    // {
+    //     $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+    //     $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
+    //     $esitef_url = $scopeConfig->getValue('payment/Vexpro_GerminiPay/esitef_url', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+    //     $merchant_id = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_id', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+    //     $merchant_key = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_key', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+    //     // 2) Efetuando o pagamento
+    //     try {
+    //         $data_json = json_encode($params);
+    //         $url = "{$esitef_url}/payments/{$this->nit}";
+    //         $ch = curl_init();
+    //         curl_setopt($ch, CURLOPT_URL, $url);
+    //         curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+    //             'Content-Type: application/json',
+    //             'merchant_id: ' . $merchant_id,
+    //             'merchant_key: ' . $merchant_key
+    //         ));
 
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    //         curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
+    //         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
-            $response  = curl_exec($ch);
-            curl_close($ch);
-            $dados = json_decode($response);
+    //         $response  = curl_exec($ch);
+    //         curl_close($ch);
+    //         $dados = json_decode($response);
 
-            $TRACKING_CODE = $dados->payment->eTRACKING_CODE;
-            $this->TRACKING_CODE = $TRACKING_CODE;
+    //         $TRACKING_CODE = $dados->payment->eTRACKING_CODE;
+    //         $this->TRACKING_CODE = $TRACKING_CODE;
 
-            //$response = ['success'];
-            if (!$response) {
-                throw new \Magento\Framework\Exception\LocalizedException(__('Failed capture request.'));
-            }
-        } catch (\Exception $e) {
-            $this->debug($e->getMessage());
-            $response = ['fail'];
-        }
-        return $dados;
-    }
+    //         //$response = ['success'];
+    //         if (!$response) {
+    //             throw new \Magento\Framework\Exception\LocalizedException(__('Failed capture request.'));
+    //         }
+    //     } catch (\Exception $e) {
+    //         $this->debug($e->getMessage());
+    //         $response = ['fail'];
+    //     }
+    //     return $dados;
+    // }
 
     /**
      * Refund specified amount for payment
@@ -684,96 +662,96 @@ class GerminiPay extends AbstractMethod
      * @api
      * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
-    public function refund(\Magento\Payment\Model\InfoInterface $payment, $amount)
-    {
-        if (!$this->canRefund()) {
-            throw new \Magento\Framework\Exception\LocalizedException(__('The refund action is not available.'));
-        }
-        $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
-        $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
+    // public function refund(\Magento\Payment\Model\InfoInterface $payment, $amount)
+    // {
+    //     if (!$this->canRefund()) {
+    //         throw new \Magento\Framework\Exception\LocalizedException(__('The refund action is not available.'));
+    //     }
+    //     $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+    //     $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
 
-        // ESTORNO DOS PONTOS USADOS NO GERMINI
-        $order = $payment->getOrder();
-        $used_points = $order->getPontosUsados();
-        $transactionId = $payment->getTransactionId();
+    //     // ESTORNO DOS PONTOS USADOS NO GERMINI
+    //     $order = $payment->getOrder();
+    //     $used_points = $order->getPontosUsados();
+    //     $transactionId = $payment->getTransactionId();
 
-        $transactionId = explode("-", $transactionId);
-        // Remove o texto 'refund' em transactionId
-        array_pop($transactionId);
-        $transactionId = join("-", $transactionId);
+    //     $transactionId = explode("-", $transactionId);
+    //     // Remove o texto 'refund' em transactionId
+    //     array_pop($transactionId);
+    //     $transactionId = join("-", $transactionId);
 
-        $params = [
-            "transactionId" => $transactionId,
-            "status" => 2
-        ];
+    //     $params = [
+    //         "transactionId" => $transactionId,
+    //         "status" => 2
+    //     ];
 
-        try {
-            $logger = $objectManager->create('\Psr\Log\LoggerInterface');
+    //     try {
+    //         $logger = $objectManager->create('\Psr\Log\LoggerInterface');
 
-            $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
+    //         $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
 
-            $url_base = $scopeConfig->getValue('acessos/general/kernel_url', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+    //         $url_base = $scopeConfig->getValue('acessos/general/kernel_url', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
 
-            $data_json = json_encode($params);
-            $url = "{$url_base}/api/Transaction/UpdateTransactionRedemption";
-            $ch = curl_init();
-            curl_setopt($ch, CURLOPT_URL, $url);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-                "Content-Type: application/json"
-            ));
-            $response  = curl_exec($ch);
-            curl_close($ch);
-            $resposta = json_decode($response);
-            if (!$response || $resposta->success != true) {
-                $logger->info("Falha no estorno com valor {$valor}");
-                throw new \Magento\Framework\Exception\LocalizedException(__('Falha no estorno dos pontos'));
-            }
+    //         $data_json = json_encode($params);
+    //         $url = "{$url_base}/api/Transaction/UpdateTransactionRedemption";
+    //         $ch = curl_init();
+    //         curl_setopt($ch, CURLOPT_URL, $url);
+    //         curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
+    //         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    //         curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+    //             "Content-Type: application/json"
+    //         ));
+    //         $response  = curl_exec($ch);
+    //         curl_close($ch);
+    //         $resposta = json_decode($response);
+    //         if (!$response || $resposta->success != true) {
+    //             $logger->info("Falha no estorno com valor {$valor}");
+    //             throw new \Magento\Framework\Exception\LocalizedException(__('Falha no estorno dos pontos'));
+    //         }
 
-            $logger->info("Estornado {$used_points} para a transação ID: {$transactionId}");
-            $messageManager = $objectManager->create('Magento\Framework\Message\ManagerInterface');
-            $messageManager->addSuccess("Estornado SD {$used_points} para a transação ID: {$transactionId}");
-        } catch (\Exception $e) {
-            $this->debug($e->getMessage());
-        }
+    //         $logger->info("Estornado {$used_points} para a transação ID: {$transactionId}");
+    //         $messageManager = $objectManager->create('Magento\Framework\Message\ManagerInterface');
+    //         $messageManager->addSuccess("Estornado SD {$used_points} para a transação ID: {$transactionId}");
+    //     } catch (\Exception $e) {
+    //         $this->debug($e->getMessage());
+    //     }
 
-        // $esitef_url = $scopeConfig->getValue('payment/Vexpro_GerminiPay/esitef_url', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
-        // $merchant_id = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_id', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
-        // $merchant_key = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_key', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+    // $esitef_url = $scopeConfig->getValue('payment/Vexpro_GerminiPay/esitef_url', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+    // $merchant_id = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_id', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+    // $merchant_key = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_key', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
 
-        // $order = $payment->getOrder();
-        // $TRACKING_CODE = $order->getSitefUsn();
+    // $order = $payment->getOrder();
+    // $TRACKING_CODE = $order->getSitefUsn();
 
-        // // 1) Criando a transação de cancelamento
-        // $url = "{$esitef_url}/cancellations";
+    // // 1) Criando a transação de cancelamento
+    // $url = "{$esitef_url}/cancellations";
 
-        // $params = [
-        //     "eTRACKING_CODE" => $TRACKING_CODE,
-        // ];
+    // $params = [
+    //     "eTRACKING_CODE" => $TRACKING_CODE,
+    // ];
 
-        // try {
-        //     $data_json = json_encode($params);
-        //     $ch = curl_init();
-        //     curl_setopt($ch, CURLOPT_URL, $url);
-        //     curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-        //         'Content-Type: application/json',
-        //         'merchant_id: ' . $merchant_id,
-        //         'merchant_key: ' . $merchant_key
-        //     ));
+    // try {
+    //     $data_json = json_encode($params);
+    //     $ch = curl_init();
+    //     curl_setopt($ch, CURLOPT_URL, $url);
+    //     curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+    //         'Content-Type: application/json',
+    //         'merchant_id: ' . $merchant_id,
+    //         'merchant_key: ' . $merchant_key
+    //     ));
 
-        //     curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
-        //     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    //     curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
+    //     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
-        //     $response  = curl_exec($ch);
-        //     curl_close($ch);
-        //     if (!$response) {
-        //         throw new \Magento\Framework\Exception\LocalizedException(__('Failed refund request.'));
-        //     }
-        // } catch (\Exception $e) {
-        //     $this->debug($e->getMessage());
-        //     $response = ['fail'];
-        // }
-        return $this;
-    }
+    //     $response  = curl_exec($ch);
+    //     curl_close($ch);
+    //     if (!$response) {
+    //         throw new \Magento\Framework\Exception\LocalizedException(__('Failed refund request.'));
+    //     }
+    // } catch (\Exception $e) {
+    //     $this->debug($e->getMessage());
+    //     $response = ['fail'];
+    // }
+    //     return $this;
+    // }
 }
