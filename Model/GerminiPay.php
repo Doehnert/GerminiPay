@@ -247,112 +247,112 @@ class GerminiPay extends AbstractMethod
 
     public function makeGerminiRedemption($order)
     {
-        try {
-            $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+        // try {
+        $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
 
-            $customerSession = $objectManager->get('\Magento\Customer\Model\Session');
-            $germiniToken = $customerSession->getCustomerToken();
+        $customerSession = $objectManager->get('\Magento\Customer\Model\Session');
+        $germiniToken = $customerSession->getCustomerToken();
 
-            $logger = $objectManager->create('\Psr\Log\LoggerInterface');
+        $logger = $objectManager->create('\Psr\Log\LoggerInterface');
 
-            $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
-            $url_base = $scopeConfig->getValue('acessos/general/kernel_url', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
-            $customer = $objectManager->get('Magento\Customer\Api\CustomerRepositoryInterface')->getById($this->customer_id);
-            $customerCPFCNPJ = $customer->getTaxvat();
+        $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
+        $url_base = $scopeConfig->getValue('acessos/general/kernel_url', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+        $customer = $objectManager->get('Magento\Customer\Api\CustomerRepositoryInterface')->getById($this->customer_id);
+        $customerCPFCNPJ = $customer->getTaxvat();
 
-            $partnercnpj = $scopeConfig->getValue('acessos/general/partnercnpj', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+        $partnercnpj = $scopeConfig->getValue('acessos/general/partnercnpj', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
 
 
-            $params = [
-                "consumerCPF" => (int) preg_replace("/[^0-9]/", "", $customerCPFCNPJ),
-                "partnerCNPJ" => $partnercnpj,
-                "value" => $this->totalSeed,
-                "PaymentType" => $this::PAYMENT_TYPE
-            ];
+        $params = [
+            "consumerCPF" => (int) preg_replace("/[^0-9]/", "", $customerCPFCNPJ),
+            "partnerCNPJ" => $partnercnpj,
+            "value" => $this->totalSeed,
+            "PaymentType" => $this::PAYMENT_TYPE
+        ];
 
+        $logger->info("Enviado ao germini: {$params}");
+
+        $data_json = json_encode($params);
+        $url = "{$url_base}/api/DigitalWallet/CreateRedemption";
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+            'Content-Type: application/json',
+            "Authorization: bearer {$germiniToken}"
+        ));
+        $response  = curl_exec($ch);
+        $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($httpcode != 200) {
             $logger->info("Enviado ao germini: {$params}");
+            throw new \Magento\Framework\Exception\LocalizedException(__('Saldo insuficiente.'));
+        }
 
-            $data_json = json_encode($params);
-            $url = "{$url_base}/api/DigitalWallet/CreateRedemption";
-            $ch = curl_init();
-            curl_setopt($ch, CURLOPT_URL, $url);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-                'Content-Type: application/json',
-                "Authorization: bearer {$germiniToken}"
-            ));
-            $response  = curl_exec($ch);
-            $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
+        $dados = json_decode($response);
+        $trackingCode = $dados->data->operationId;
+        $order->setTrackingCode($trackingCode);
 
-            if ($httpcode != 200) {
-                $logger->info("Enviado ao germini: {$params}");
-                throw new \Magento\Framework\Exception\LocalizedException(__('Saldo insuficiente.'));
-            }
+        $params = [
+            "consumerCPF" => (int) preg_replace("/[^0-9]/", "", $customerCPFCNPJ),
+            "partnerCNPJ" => $partnercnpj,
+            "trackingCode" => $trackingCode,
+            "capture" => true,
+            "paymentType" => $this::PAYMENT_TYPE,
+            "value" => $this->totalSeed,
+            "ApprovalChannel" => 1
+        ];
 
-            $dados = json_decode($response);
-            $trackingCode = $dados->data->operationId;
-            $order->setTrackingCode($trackingCode);
+        $logger->info("Enviado ao germini: {$params}");
 
-            $params = [
-                "consumerCPF" => (int) preg_replace("/[^0-9]/", "", $customerCPFCNPJ),
-                "partnerCNPJ" => $partnercnpj,
-                "trackingCode" => $trackingCode,
-                "capture" => true,
-                "paymentType" => $this::PAYMENT_TYPE,
-                "value" => $this->totalSeed,
-                "ApprovalChannel" => 1
-            ];
+        $paymentCode = $dados->data->code;
+        $order->setPaymentCode($paymentCode);
+        $order->setPaymentType($this::PAYMENT_TYPE);
 
+        $data_json = json_encode($params);
+        $url = "{$url_base}/api/DigitalWallet/ValidateRedemption";
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+            'Content-Type: application/json',
+            "Authorization: bearer {$germiniToken}"
+        ));
+        $response  = curl_exec($ch);
+
+        $dados = json_decode($response);
+
+        $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($httpcode != 200) {
             $logger->info("Enviado ao germini: {$params}");
-
-            $paymentCode = $dados->data->code;
-            $order->setPaymentCode($paymentCode);
-            $order->setPaymentType($this::PAYMENT_TYPE);
-
-            $data_json = json_encode($params);
-            $url = "{$url_base}/api/DigitalWallet/ValidateRedemption";
-            $ch = curl_init();
-            curl_setopt($ch, CURLOPT_URL, $url);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-                'Content-Type: application/json',
-                "Authorization: bearer {$germiniToken}"
-            ));
-            $response  = curl_exec($ch);
-
-            $dados = json_decode($response);
-
-            $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
-
-            if ($httpcode != 200) {
-                $logger->info("Enviado ao germini: {$params}");
-                throw new \Magento\Framework\Exception\LocalizedException(__('Saldo insuficiente.'));
-            }
-            if (null !== $dados->errors) {
-                $logger->info("Enviado ao germini: {$params}");
-                $messageManager = $objectManager->create('Magento\Framework\Message\ManagerInterface');
-                $messageManager->addError("Erro ao autenticar no Magento");
-                throw new \Magento\Framework\Exception\LocalizedException(__($dados->errors[0]->message));
-                $response = ['fail'];
-            }
-            $logger->info("{$customerCPFCNPJ} -> resgate de SD {$this->totalSeed}");
-
-            $customer = $customerSession->getCustomer();
-            $customerSession->setSapEdit(false);
-            $novoValorPontos = $this->pontosCliente - $this->totalSeed;
-            $customer->setPontosCliente($novoValorPontos);
-
-            $this->transactionId = $dados->data->operationId;
-            $customer->save();
-            $customerSession->setSapEdit(true);
-        } catch (\Exception $e) {
-            $this->debug($e->getMessage());
+            throw new \Magento\Framework\Exception\LocalizedException(__('Saldo insuficiente.'));
+        }
+        if (null !== $dados->errors) {
+            $logger->info("Enviado ao germini: {$params}");
+            $messageManager = $objectManager->create('Magento\Framework\Message\ManagerInterface');
+            $messageManager->addError("Erro ao autenticar no Magento");
+            throw new \Magento\Framework\Exception\LocalizedException(__($dados->errors[0]->message));
             $response = ['fail'];
         }
+        $logger->info("{$customerCPFCNPJ} -> resgate de SD {$this->totalSeed}");
+
+        $customer = $customerSession->getCustomer();
+        $customerSession->setSapEdit(false);
+        $novoValorPontos = $this->pontosCliente - $this->totalSeed;
+        $customer->setPontosCliente($novoValorPontos);
+
+        $this->transactionId = $dados->data->operationId;
+        $customer->save();
+        $customerSession->setSapEdit(true);
+        // } catch (\Exception $e) {
+        //     $this->debug($e->getMessage());
+        //     $response = ['fail'];
+        // }
         return $dados;
     }
 
