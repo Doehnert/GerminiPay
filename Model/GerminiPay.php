@@ -285,7 +285,7 @@ class GerminiPay extends AbstractMethod
             curl_close($ch);
 
             if ($httpcode != 200) {
-                $logger->info('Saldo insuficiente');
+                $logger->info($params);
                 throw new \Magento\Framework\Exception\LocalizedException(__('Saldo insuficiente.'));
             }
 
