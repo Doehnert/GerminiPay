@@ -102,7 +102,7 @@ class GerminiPay2 extends AbstractMethod
         $walletFormatted = number_format(floatval($this->saldoCliente), 2, ',', '.');
         $totalFormatted = number_format(floatval($this->grandTotal), 2, ',', '.');
 
-        return "Pagar com Saldo da Carteira Digital: Você possui Saldo de R$ {$walletFormatted} - Será usado R$ {$totalFormatted}";
+        return "Pagar com saldo da Carteira Digital: Saldo atual R$ {$walletFormatted} - será utilizado R$ {$totalFormatted}";
     }
 
     /**

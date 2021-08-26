@@ -105,7 +105,7 @@ class GerminiPay extends AbstractMethod
         $pointsFormatted = number_format(floatval($this->pontosCliente), 0, ',', '.');
         $totalFormatted = number_format(floatval($this->totalSeed), 0, ',', '.');
 
-        return "Pagar com Pontos: Você possui SD {$pointsFormatted} - Será usado SD {$totalFormatted}";
+        return "Pagar com Pontos: Saldo atual SD$ {$pointsFormatted} - será utilizado SD {$totalFormatted}";
     }
 
     /**
