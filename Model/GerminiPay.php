@@ -453,14 +453,14 @@ class GerminiPay extends AbstractMethod
         $orderTotalValue = $order->getGrandTotal();
         $this->orderTotalValue = $orderTotalValue;
 
-        if ($this->totalSeed > 0 || $this->saldoCliente > $orderTotalValue) {
-            try {
-                $this->makeGerminiRedemption($order);
-                $order->setPontosUsados($this->totalSeed);
-            } catch (\Exception $e) {
-                throw new \Magento\Framework\Exception\LocalizedException(__($e));
-            }
+        // if ($this->totalSeed > 0 || $this->saldoCliente > $orderTotalValue) {
+        try {
+            $this->makeGerminiRedemption($order);
+            // $order->setPontosUsados($this->totalSeed);
+        } catch (\Exception $e) {
+            throw new \Magento\Framework\Exception\LocalizedException(__($e));
         }
+        // }
 
         $payment->setIsTransactionClosed(1);
         return $this;
