@@ -330,7 +330,7 @@ class GerminiPay extends AbstractMethod
 
         if ($httpcode != 200) {
             $logger->info("Germini respondeu codigo {$httpcode}");
-            $logger->info("consumerCPF {$customerCPFCNPJ} partnerCNPJ {$partnercnpj} trackingCode {$trackingCode} paymentType {$this::PAYMENT_TYPE} value {$this->totalSeed} ApprovalChannel 1");
+            $logger->info("consumerCPF {$customerCPFCNPJ} partnerCNPJ {$partnercnpj} trackingCode {$trackingCode} paymentType  value {$this->totalSeed} ApprovalChannel 1");
             throw new \Magento\Framework\Exception\LocalizedException(__('Saldo insuficiente.'));
         }
         if (null !== $dados->errors) {
