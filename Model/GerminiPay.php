@@ -330,7 +330,6 @@ class GerminiPay extends AbstractMethod
         $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
-        $logger->info("consumerCPF {$customerCPFCNPJ} partnerCNPJ {$partnercnpj} trackingCode {$trackingCode} paymentType  value {$this->totalSeed} ApprovalChannel 1");
 
         if ($httpcode != 200) {
             $logger->info("Germini respondeu codigo {$httpcode}");
@@ -338,7 +337,7 @@ class GerminiPay extends AbstractMethod
             throw new \Magento\Framework\Exception\LocalizedException(__('Saldo insuficiente.'));
         }
         if (null !== $dados->errors) {
-            // $logger->info("Enviado ao germini: {$params}");
+            $logger->info($dados->errors[0]->message);
             $messageManager = $objectManager->create('Magento\Framework\Message\ManagerInterface');
             $messageManager->addError("Erro ao autenticar no Magento");
             throw new \Magento\Framework\Exception\LocalizedException(__($dados->errors[0]->message));
@@ -461,7 +460,7 @@ class GerminiPay extends AbstractMethod
         // if ($this->totalSeed > 0 || $this->saldoCliente > $orderTotalValue) {
         try {
             $this->makeGerminiRedemption($order);
-            // $order->setPontosUsados($this->totalSeed);
+            $order->setPontosUsados($this->totalSeed);
         } catch (\Exception $e) {
             throw new \Magento\Framework\Exception\LocalizedException(__("Saldo insuficiente"));
         }
