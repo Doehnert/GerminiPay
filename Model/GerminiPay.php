@@ -458,7 +458,7 @@ class GerminiPay extends AbstractMethod
                 $this->makeGerminiRedemption($order);
                 $order->setPontosUsados($this->totalSeed);
             } catch (\Exception $e) {
-                throw new \Magento\Framework\Exception\LocalizedException(__('Falha no resgate de pontos.'));
+                throw new \Magento\Framework\Exception\LocalizedException(__($e));
             }
         }
 
