@@ -270,6 +270,8 @@ class GerminiPay extends AbstractMethod
                 "PaymentType" => $this::PAYMENT_TYPE
             ];
 
+            $logger->info("Enviado ao germini: {$params}");
+
             $data_json = json_encode($params);
             $url = "{$url_base}/api/DigitalWallet/CreateRedemption";
             $ch = curl_init();
@@ -302,6 +304,8 @@ class GerminiPay extends AbstractMethod
                 "value" => $this->totalSeed,
                 "ApprovalChannel" => 1
             ];
+
+            $logger->info("Enviado ao germini: {$params}");
 
             $paymentCode = $dados->data->code;
             $order->setPaymentCode($paymentCode);
