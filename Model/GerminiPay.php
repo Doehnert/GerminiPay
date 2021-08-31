@@ -247,7 +247,6 @@ class GerminiPay extends AbstractMethod
 
     public function makeGerminiRedemption($order)
     {
-        // try {
         $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
 
         $customerSession = $objectManager->get('\Magento\Customer\Model\Session');
@@ -270,8 +269,6 @@ class GerminiPay extends AbstractMethod
             "PaymentType" => $this::PAYMENT_TYPE
         ];
 
-        // $logger->info("Enviado ao germini: {$params}");
-
         $data_json = json_encode($params);
         $url = "{$url_base}/api/DigitalWallet/CreateRedemption";
         $ch = curl_init();
@@ -287,7 +284,6 @@ class GerminiPay extends AbstractMethod
         curl_close($ch);
 
         if ($httpcode != 200) {
-            // $logger->info("Enviado ao germini: {$params}");
             throw new \Magento\Framework\Exception\LocalizedException(__('Saldo insuficiente.'));
         }
 
@@ -304,10 +300,6 @@ class GerminiPay extends AbstractMethod
             "value" => $this->totalSeed,
             "ApprovalChannel" => 1
         ];
-
-
-
-        // $logger->info("Enviado ao germini: {$params}");
 
         $paymentCode = $dados->data->code;
         $order->setPaymentCode($paymentCode);
@@ -353,10 +345,7 @@ class GerminiPay extends AbstractMethod
         $this->transactionId = $dados->data->operationId;
         $customer->save();
         $customerSession->setSapEdit(true);
-        // } catch (\Exception $e) {
-        //     $this->debug($e->getMessage());
-        //     $response = ['fail'];
-        // }
+
         return $dados;
     }
 
