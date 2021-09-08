@@ -29,12 +29,6 @@ define([
   var self
 
   return Component.extend({
-    teste: ko.computed(function () {
-      var teste = ko.observable(window.checkoutConfig['usados'])
-      teste.valueHasMutated()
-      console.log(teste())
-    }),
-
     myGrandTotal: 0,
 
     defaults: {
@@ -52,9 +46,14 @@ define([
     initialize: function () {
       self = this
 
-      console.log(quote)
+      var summaryCount = customerData.get('cart')().summary_count
+      var item = customerData.get('customer')
+      console.log(summaryCount)
+      console.log(item)
+      console.log(customerData)
 
       this._super()
+
       this.populateUi()
       this.PersonViewModel()
     },
@@ -151,51 +150,22 @@ define([
         }
       })
 
-      this.parcelas = ko.computed(function () {
-        console.log(quote.getTotals()()['total_segments'])
+      this.saldoCliente = ko.observable(334)
 
-        var dinheiro = quote.getTotals()()['total_segments'][4]['value']
-        var desconto = quote.getTotals()()['total_segments'][2]['value']
-
-        console.log(desconto)
-        self.desconto(desconto)
-        self.ponto2(window.checkoutConfig['usados'])
-        self.dinheiro(dinheiro)
-
-        parcelas = []
-        for (var i = 0; i < num_parcelas; i++) {
-          parcelas.push(
-            new Parcela(
-              i + 1,
-              'Pagar em ' +
-                (i + 1) +
-                ' vezes de ' +
-                priceUtils.formatPrice(self.myTotal() / (i + 1), priceFormat),
-            ),
-          )
-        }
-
-        return parcelas
+      this.saldoAtualizado = ko.computed(function () {
+        return self.saldoCliente() - self.myTotal()
       })
     },
 
     usaPontos: ko.computed(function () {
-      // if (localStorage['visited'] > 0) {
-      // 	return true;
-      // } else {
-      // 	return false;
-      // }
       return true
     }),
 
     dinheiroUsado: ko.computed(function () {
-      // if (this.grand_total > 0) return true;
       return false
     }),
 
     myTotal: ko.computed(function () {
-      // this.myPoints(0);
-      // console.log(myPoints);
       return totals.getSegment('grand_total').value
     }),
 

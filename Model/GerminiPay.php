@@ -60,13 +60,13 @@ class GerminiPay extends AbstractMethod
         $totalPoints = 0;
         foreach ($items as $item) {
             $productData = $objectManager->create('Magento\Catalog\Model\Product')->load($item->getProductId());
-
+            $quantity = $item->getQty();
             //if (null !== ($item->getAdditionalData()))
             //{
             $pointsRedeemed = (int) $productData->getPontosProduto();
             if ($pointsRedeemed == 0)
                 $this->produtoSemPonto = true;
-            $totalPoints += $pointsRedeemed;
+            $totalPoints += $pointsRedeemed * $quantity;
             //}
         }
         $this->totalSeed = $totalPoints;
@@ -288,6 +288,10 @@ class GerminiPay extends AbstractMethod
         }
 
         $dados = json_decode($response);
+
+        if ($dados->success == false) {
+            throw new \Magento\Framework\Exception\LocalizedException(__($dados->errors[0]->message));
+        }
         $trackingCode = $dados->data->operationId;
         $order->setTrackingCode($trackingCode);
 
@@ -330,10 +334,7 @@ class GerminiPay extends AbstractMethod
         }
         if (null !== $dados->errors) {
             $logger->info($dados->errors[0]->message);
-            $messageManager = $objectManager->create('Magento\Framework\Message\ManagerInterface');
-            $messageManager->addError("Erro ao autenticar no Magento");
-            throw new \Magento\Framework\Exception\LocalizedException(__($dados->errors[0]->message));
-            $response = ['fail'];
+            throw new \Magento\Framework\Exception\LocalizedException(__('Saldo insuficiente.'));
         }
         $logger->info("{$customerCPFCNPJ} -> resgate de SD {$this->totalSeed}");
 
@@ -451,7 +452,7 @@ class GerminiPay extends AbstractMethod
             $this->makeGerminiRedemption($order);
             $order->setPontosUsados($this->totalSeed);
         } catch (\Exception $e) {
-            throw new \Magento\Framework\Exception\LocalizedException(__("Saldo insuficiente"));
+            throw new \Magento\Framework\Exception\LocalizedException(__($e->getMessage()));
         }
         // }
 

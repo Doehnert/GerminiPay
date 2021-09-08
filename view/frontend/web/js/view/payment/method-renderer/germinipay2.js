@@ -32,7 +32,6 @@ define([
     teste: ko.computed(function () {
       var teste = ko.observable(window.checkoutConfig['usados'])
       teste.valueHasMutated()
-      console.log(teste())
     }),
 
     myGrandTotal: 0,
@@ -51,8 +50,6 @@ define([
 
     initialize: function () {
       self = this
-
-      console.log(quote)
 
       this._super()
       this.populateUi()
@@ -126,7 +123,6 @@ define([
       this.dinheiro = ko.observable(0).extend({ notify: 'always' })
 
       this.pontosUsados = ko.computed(function () {
-        console.log(self.desconto())
         if (self.ponto2() != null && self.ponto2() != 0) {
           return true
         } else {
@@ -152,12 +148,9 @@ define([
       })
 
       this.parcelas = ko.computed(function () {
-        console.log(quote.getTotals()()['total_segments'])
-
         var dinheiro = quote.getTotals()()['total_segments'][4]['value']
         var desconto = quote.getTotals()()['total_segments'][2]['value']
 
-        console.log(desconto)
         self.desconto(desconto)
         self.ponto2(window.checkoutConfig['usados'])
         self.dinheiro(dinheiro)
@@ -215,8 +208,6 @@ define([
           paymentType: $('input[name=paymenttype]:checked').val(),
         },
       }
-
-      console.log(data)
 
       return data
     },

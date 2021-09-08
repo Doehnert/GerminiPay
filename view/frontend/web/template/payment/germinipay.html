@@ -1,171 +1,79 @@
 <style>
-    .tooltip {}
+  table {
+    font-family: arial, sans-serif;
+    border-collapse: collapse;
+    width: 100%;
+  }
 
-    .tooltip .senha[disabled] {
-        color: black;
-    }
+  td,
+  th {
+    border: 1px solid #dddddd;
+    text-align: left;
+    padding: 8px;
+  }
 
-    .tooltip .tooltiptext {
-        visibility: hidden;
-        width: 120px;
-        background-color: #555;
-        color: #fff;
-        text-align: center;
-        border-radius: 6px;
-        padding: 5px 0;
-        position: absolute;
-        z-index: 1;
-        bottom: 125%;
-        left: 50%;
-        margin-left: -60px;
-        opacity: 0;
-        transition: opacity 0.3s;
-    }
-
-    .tooltip .tooltiptext::after {
-        content: "";
-        position: absolute;
-        top: 100%;
-        left: 50%;
-        margin-left: -5px;
-        border-width: 5px;
-        border-style: solid;
-        border-color: #555 transparent transparent transparent;
-    }
-
-    .tooltip:hover .tooltiptext {
-        visibility: visible;
-        opacity: 1;
-    }
-
+  tr:nth-child(even) {
+    background-color: #dddddd;
+  }
 </style>
 
-<div class="payment-method" data-bind="css: {'_active': (getCode() == isChecked())}">
-    <div class="payment-method-title field choice">
-        <input type="radio" name="payment[method]" class="radio"
-            data-bind="attr: {'id': getCode()}, value: getCode(), checked: isChecked, click: selectPaymentMethod, visible: isRadioButtonVisible()" />
-        <label data-bind="attr: {'for': getCode()}" class="label">
-            <span data-bind="text: getTitle()">
-            </span>
-        </label>
-    </div>
-    <div class="payment-method-content">
-        <!-- ko foreach: getRegion('messages') -->
-        <!-- ko template: getTemplate() -->
-        <!-- /ko -->
-        <!--/ko-->
+<div
+  class="payment-method"
+  data-bind="css: {'_active': (getCode() == isChecked())}"
+>
+  <div class="payment-method-title field choice">
+    <input
+      type="radio"
+      name="payment[method]"
+      class="radio"
+      data-bind="attr: {'id': getCode()}, value: getCode(), checked: isChecked, click: selectPaymentMethod, visible: isRadioButtonVisible()"
+    />
+    <label data-bind="attr: {'for': getCode()}" class="label">
+      <span data-bind="text: getTitle()"> </span>
+    </label>
+  </div>
+  <div class="payment-method-content">
+    <form
+      class="form"
+      data-bind="attr: {'id': getCode() + '-form'}"
+      data-mage-init='{"validation":{}}'
+      id="Vexpro_GerminiPay-form"
+    >
+      <fieldset
+        data-bind="attr: {class: 'fieldset payment items ccard ' + getCode(), id: 'payment_form_' + getCode()}"
+      >
+        <!-- <table>
+          <tr>
+            <th>Meu saldo</th>
+            <th>Valor do produto</th>
+            <th>Saldo atualizado</th>
+          </tr>
+          <tr>
+            <td><span data-bind="text: saldoCliente"></td>
+            <td><span data-bind="text: myTotal"></td>
+            <td><span data-bind="text: saldoAtualizado"></td>
+          </tr>
+        </table>-->
 
-        <!-- Render the native credit card form. -->
-        <form class="form" data-bind="attr: {'id': getCode() + '-form'}" data-mage-init='{"validation":{}}'
-            id="Vexpro_GerminiPay-form">
-            <fieldset
-                data-bind="attr: {class: 'fieldset payment items ccard ' + getCode(), id: 'payment_form_' + getCode()}">
-                <!-- ko if: (isShowLegend())-->
-                <legend class="legend">
-                    <span>
-                        <!-- ko i18n: 'Credit Card Information'-->
-                        <!-- /ko -->
-                    </span>
-                </legend>
-                <br />
-                <!-- /ko -->
-
-                <!-- <label for:"senha" class="label">
-                    <span>Senha de resgate *</span>
-                </label>
-                <div class="field required">
-                    <div class="control" style='display: flex; align-items: center'>
-
-                        <div class="tooltip">
-                            <input type="password" class="senha" id="senha" name="senha" required class="input-text"
-                                placeholder="" disabled />
-                        </div>
-
-                        <img style="height: 23px; width: 45px; margin-left: 2em" id='icon'
-                            data-bind="attr: { src: require.toUrl('Vexpro_GerminiPay/images/ico_teclado.png') }" />
-
-                    </div>
-                    <div class="control">
-                        <div class="cryxpad-container"></div>
-                    </div>
-                </div>
-
-                <div>
-                    <a id="limpar">Limpar a senha</a>
-                </div>
-
-                <div class="field required">
-                    <div class="control" style='display: flex; align-items: center'>
-
-                        <div>
-                            <a target="_blank"
-                                href="https://cvale-fidelidade-consumer-hom.azurewebsites.net/resetpassword">Esqueci
-                                minha senha
-                            </a>
-                        </div>
-
-                        <div class="tooltip">
-                            <img style="height: 15px; width: 15px; margin-left: 1em" id='icon'
-                                data-bind="attr: { src: require.toUrl('Vexpro_GerminiPay/images/ico_informacao.png') }" />
-
-                            <span class="tooltiptext">Alerar senha de acesso a loja</span>
-                        </div>
-                    </div>
-                </div> -->
-
-
-                <!-- <div class="field required">
-                    <div class="control" style='display: flex; align-items: center'>
-
-                        <div class="tooltip">
-
-                            <p>Selecione a forma de Pagamento</p>
-                                <input type="radio" id="paymenttype" name="paymenttype" value="1">
-                                <label for="seeds">Seeds</label><br>
-                                <input type="radio" id="paymenttype" name="paymenttype" value="2">
-                                <label for="css">Saldo carteira digital</label><br>
-                        </div>
-
-                    </div>
-                </div> -->
-
-
-                <div data-bind='mageInit: {"hello":{}}'>
-                </div>
-
-                <!-- /ko -->
-            </fieldset>
-        </form>
-        <div class="checkout-agreements-block">
-            <!-- ko foreach: $parent.getRegion('before-place-order') -->
-            <!-- ko template: getTemplate() -->
-            <!-- /ko -->
-            <!--/ko-->
-        </div>
-        <!-- <div class="actions-toolbar">
-            <div class="primary">
-                <button data-role="review-save" type="submit" data-bind="
+        <div data-bind='mageInit: {"hello":{}}'></div>
+      </fieldset>
+    </form>
+    <div class="actions-toolbar">
+      <div class="primary">
+        <button
+          data-role="review-save"
+          type="submit"
+          data-bind="
                            attr: {title: $t('Place Order')},
                            enable: (getCode() == isChecked()),
                            click: placeOrder,
-                           css: {disabled: !isPlaceOrderActionAllowed()}
-                           " class="action primary checkout" disabled>
-                    <span data-bind="i18n: 'Place Order'">
-                    </span>
-                </button>
-            </div>
-        </div> -->
-        <div class="actions-toolbar">
-            <div class="primary">
-                <button data-role="review-save" type="submit" data-bind="
-                           attr: {title: $t('Place Order')},
-                           enable: (getCode() == isChecked()),
-                           click: placeOrder,
-                           " class="action primary checkout" disabled>
-                    <span data-bind="i18n: 'Place Order'">
-                    </span>
-                </button>
-            </div>
-        </div>
+                           "
+          class="action primary checkout"
+          disabled
+        >
+          <span data-bind="i18n: 'Place Order'"> </span>
+        </button>
+      </div>
     </div>
+  </div>
 </div>
