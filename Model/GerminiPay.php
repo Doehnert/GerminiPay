@@ -263,7 +263,7 @@ class GerminiPay extends AbstractMethod
 
 
         $params = [
-            "consumerCPF" => (int) preg_replace("/[^0-9]/", "", $customerCPFCNPJ),
+            "consumerCPF" => preg_replace("/[^0-9]/", "", $customerCPFCNPJ),
             "partnerCNPJ" => $partnercnpj,
             "value" => $this->totalSeed,
             "PaymentType" => $this::PAYMENT_TYPE
@@ -296,7 +296,7 @@ class GerminiPay extends AbstractMethod
         $order->setTrackingCode($trackingCode);
 
         $params = [
-            "consumerCPF" => (int) preg_replace("/[^0-9]/", "", $customerCPFCNPJ),
+            "consumerCPF" => preg_replace("/[^0-9]/", "", $customerCPFCNPJ),
             "partnerCNPJ" => $partnercnpj,
             "trackingCode" => $trackingCode,
             "capture" => true,

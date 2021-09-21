@@ -153,7 +153,7 @@ class GerminiPay2 extends AbstractMethod
 
 
             $params = [
-                "consumerCPF" => (int) preg_replace("/[^0-9]/", "", $customerCPFCNPJ),
+                "consumerCPF" => preg_replace("/[^0-9]/", "", $customerCPFCNPJ),
                 "partnerCNPJ" => $partnercnpj,
                 "value" => $this->orderTotalValue,
                 "PaymentType" => $this::PAYMENT_TYPE
@@ -185,7 +185,7 @@ class GerminiPay2 extends AbstractMethod
             $order->setTrackingCode($trackingCode);
 
             $params = [
-                "consumerCPF" => (int) preg_replace("/[^0-9]/", "", $customerCPFCNPJ),
+                "consumerCPF" => preg_replace("/[^0-9]/", "", $customerCPFCNPJ),
                 "partnerCNPJ" => $partnercnpj,
                 "trackingCode" => $trackingCode,
                 "capture" => true,
@@ -263,7 +263,7 @@ class GerminiPay2 extends AbstractMethod
             try {
                 $this->makeGerminiRedemption($order);
             } catch (\Exception $e) {
-                throw new \Magento\Framework\Exception\LocalizedException(__('Falha no resgate por saldo da carteira.'));
+                throw new \Magento\Framework\Exception\LocalizedException(__('Erro' . $e));
             }
         }
 
