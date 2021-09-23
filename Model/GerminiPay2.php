@@ -14,7 +14,7 @@ class GerminiPay2 extends AbstractMethod
 
     protected $_canAuthorize = true;
     protected $_canCapture = true;
-    // protected $_canRefund = true;
+    protected $_canRefund = true;
     protected $_isGateway = true;
     // protected $_canVoid = true;
     protected $_canCancel = true;
@@ -129,7 +129,6 @@ class GerminiPay2 extends AbstractMethod
     public function capture(\Magento\Payment\Model\InfoInterface $payment, $amount)
     {
         //     //check if payment has been authorized
-        //     if (is_null($payment->getParentTransactionId())) {
         $this->authorize($payment, $amount);
     }
 
@@ -235,6 +234,7 @@ class GerminiPay2 extends AbstractMethod
             $customer->setSaldoCliente($novoValorSaldo);
 
             $this->transactionId = $dados->data->operationId;
+
             $customer->save();
             $customerSession->setSapEdit(true);
         } catch (\Exception $e) {
@@ -262,6 +262,8 @@ class GerminiPay2 extends AbstractMethod
         if ($this->totalSeed > 0 || $this->saldoCliente > $orderTotalValue) {
             try {
                 $this->makeGerminiRedemption($order);
+
+                $payment->setTransactionId($this->transactionId);
             } catch (\Exception $e) {
                 throw new \Magento\Framework\Exception\LocalizedException(__('Erro' . $e));
             }
@@ -279,5 +281,73 @@ class GerminiPay2 extends AbstractMethod
     public function getConfigPaymentAction()
     {
         return self::ACTION_AUTHORIZE_CAPTURE;
+    }
+
+
+    /**
+     * Refund specified amount for payment
+     *
+     * @param \Magento\Framework\DataObject|InfoInterface $payment
+     * @param float $amount
+     * @return $this
+     * @throws \Magento\Framework\Exception\LocalizedException
+     * @api
+     * @SuppressWarnings(PHPMD.UnusedFormalParameter)
+     */
+    public function refund(\Magento\Payment\Model\InfoInterface $payment, $amount)
+    {
+        if (!$this->canRefund()) {
+            throw new \Magento\Framework\Exception\LocalizedException(__('The refund action is not available.'));
+        }
+        $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+        $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
+
+        // ESTORNO DOS PONTOS USADOS NO GERMINI
+        $order = $payment->getOrder();
+        $used_points = $order->getPontosUsados();
+        $trackingCode = $order->getTrackingCode();
+
+        $transactionId = $payment->getTransactionId();
+
+        $params = [
+            "status" => 2,
+            "trackingCode" => $trackingCode,
+            "paymentType" => $this::PAYMENT_TYPE
+        ];
+
+        // Pega o token da sessão
+        $catalogSession = $objectManager->create('Magento\Catalog\Model\Session');
+        $adminToken = $catalogSession->getToken();
+
+        $logger = $objectManager->create('\Psr\Log\LoggerInterface');
+
+        $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
+
+        $url_base = $scopeConfig->getValue('acessos/general/kernel_url', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+
+        $data_json = json_encode($params);
+        $url = "{$url_base}/api/DigitalWallet/UpdateRedemption";
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+            "Content-Type: application/json",
+            "Authorization: bearer {$adminToken}"
+        ));
+        $response  = curl_exec($ch);
+        curl_close($ch);
+        $resposta = json_decode($response);
+        if (!$response || $resposta->success != true) {
+            $logger->info("Falha no estorno!");
+            throw new \Magento\Framework\Exception\LocalizedException(__('Falha no estorno do saldo da carteira digital'));
+        }
+
+        $logger->info("Estornado o saldo para a transação ID: {$transactionId}");
+        $messageManager = $objectManager->create('Magento\Framework\Message\ManagerInterface');
+        $messageManager->addSuccess("Estornado todo o valor em R$ para a transação ID: {$transactionId}");
+
+
+        return $this;
     }
 }

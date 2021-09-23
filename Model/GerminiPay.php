@@ -14,7 +14,7 @@ class GerminiPay extends AbstractMethod
 
     protected $_canAuthorize = true;
     protected $_canCapture = true;
-    // protected $_canRefund = true;
+    protected $_canRefund = true;
     protected $_isGateway = true;
     // protected $_canVoid = true;
     protected $_canCancel = true;
@@ -451,6 +451,7 @@ class GerminiPay extends AbstractMethod
         try {
             $this->makeGerminiRedemption($order);
             $order->setPontosUsados($this->totalSeed);
+            $payment->setTransactionId($this->transactionId);
         } catch (\Exception $e) {
             throw new \Magento\Framework\Exception\LocalizedException(__($e->getMessage()));
         }
@@ -660,96 +661,63 @@ class GerminiPay extends AbstractMethod
      * @api
      * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
-    // public function refund(\Magento\Payment\Model\InfoInterface $payment, $amount)
-    // {
-    //     if (!$this->canRefund()) {
-    //         throw new \Magento\Framework\Exception\LocalizedException(__('The refund action is not available.'));
-    //     }
-    //     $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
-    //     $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
+    public function refund(\Magento\Payment\Model\InfoInterface $payment, $amount)
+    {
+        if (!$this->canRefund()) {
+            throw new \Magento\Framework\Exception\LocalizedException(__('The refund action is not available.'));
+        }
+        $objectManager = \Magento\Framework\App\ObjectManager::getInstance();
+        $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
 
-    //     // ESTORNO DOS PONTOS USADOS NO GERMINI
-    //     $order = $payment->getOrder();
-    //     $used_points = $order->getPontosUsados();
-    //     $transactionId = $payment->getTransactionId();
+        // ESTORNO DOS PONTOS USADOS NO GERMINI
+        $order = $payment->getOrder();
+        $used_points = $order->getPontosUsados();
+        $trackingCode = $order->getTrackingCode();
 
-    //     $transactionId = explode("-", $transactionId);
-    //     // Remove o texto 'refund' em transactionId
-    //     array_pop($transactionId);
-    //     $transactionId = join("-", $transactionId);
+        $transactionId = $payment->getTransactionId();
 
-    //     $params = [
-    //         "transactionId" => $transactionId,
-    //         "status" => 2
-    //     ];
+        array_pop($transactionId);
+        $transactionId = join("-", $transactionId);
 
-    //     try {
-    //         $logger = $objectManager->create('\Psr\Log\LoggerInterface');
+        $params = [
+            "status" => 2,
+            "trackingCode" => $trackingCode,
+            "paymentType" => $this::PAYMENT_TYPE
+        ];
 
-    //         $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
+        // Pega o token da sessão
+        $catalogSession = $objectManager->create('Magento\Catalog\Model\Session');
+        $adminToken = $catalogSession->getToken();
 
-    //         $url_base = $scopeConfig->getValue('acessos/general/kernel_url', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+        $logger = $objectManager->create('\Psr\Log\LoggerInterface');
 
-    //         $data_json = json_encode($params);
-    //         $url = "{$url_base}/api/Transaction/UpdateTransactionRedemption";
-    //         $ch = curl_init();
-    //         curl_setopt($ch, CURLOPT_URL, $url);
-    //         curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
-    //         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    //         curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-    //             "Content-Type: application/json"
-    //         ));
-    //         $response  = curl_exec($ch);
-    //         curl_close($ch);
-    //         $resposta = json_decode($response);
-    //         if (!$response || $resposta->success != true) {
-    //             $logger->info("Falha no estorno com valor {$valor}");
-    //             throw new \Magento\Framework\Exception\LocalizedException(__('Falha no estorno dos pontos'));
-    //         }
+        $scopeConfig = $objectManager->create('Magento\Framework\App\Config\ScopeConfigInterface');
 
-    //         $logger->info("Estornado {$used_points} para a transação ID: {$transactionId}");
-    //         $messageManager = $objectManager->create('Magento\Framework\Message\ManagerInterface');
-    //         $messageManager->addSuccess("Estornado SD {$used_points} para a transação ID: {$transactionId}");
-    //     } catch (\Exception $e) {
-    //         $this->debug($e->getMessage());
-    //     }
+        $url_base = $scopeConfig->getValue('acessos/general/kernel_url', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
 
-    // $esitef_url = $scopeConfig->getValue('payment/Vexpro_GerminiPay/esitef_url', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
-    // $merchant_id = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_id', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
-    // $merchant_key = $scopeConfig->getValue('payment/Vexpro_GerminiPay/merchant_key', \Magento\Store\Model\ScopeInterface::SCOPE_STORE);
+        $data_json = json_encode($params);
+        $url = "{$url_base}/api/DigitalWallet/UpdateRedemption";
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+            "Content-Type: application/json",
+            "Authorization: bearer {$adminToken}"
+        ));
+        $response  = curl_exec($ch);
+        curl_close($ch);
+        $resposta = json_decode($response);
+        if (!$response || $resposta->success != true) {
+            $logger->info("Falha no estorno!");
+            throw new \Magento\Framework\Exception\LocalizedException(__('Falha no estorno dos pontos'));
+        }
 
-    // $order = $payment->getOrder();
-    // $TRACKING_CODE = $order->getSitefUsn();
+        $logger->info("Estornado os pontos para a transação ID: {$transactionId}");
+        $messageManager = $objectManager->create('Magento\Framework\Message\ManagerInterface');
+        $messageManager->addSuccess("Estornado SD {$used_points} para a transação ID: {$transactionId}");
 
-    // // 1) Criando a transação de cancelamento
-    // $url = "{$esitef_url}/cancellations";
 
-    // $params = [
-    //     "eTRACKING_CODE" => $TRACKING_CODE,
-    // ];
-
-    // try {
-    //     $data_json = json_encode($params);
-    //     $ch = curl_init();
-    //     curl_setopt($ch, CURLOPT_URL, $url);
-    //     curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-    //         'Content-Type: application/json',
-    //         'merchant_id: ' . $merchant_id,
-    //         'merchant_key: ' . $merchant_key
-    //     ));
-
-    //     curl_setopt($ch, CURLOPT_POSTFIELDS, $data_json);
-    //     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-
-    //     $response  = curl_exec($ch);
-    //     curl_close($ch);
-    //     if (!$response) {
-    //         throw new \Magento\Framework\Exception\LocalizedException(__('Failed refund request.'));
-    //     }
-    // } catch (\Exception $e) {
-    //     $this->debug($e->getMessage());
-    //     $response = ['fail'];
-    // }
-    //     return $this;
-    // }
+        return $this;
+    }
 }
