@@ -676,9 +676,6 @@ class GerminiPay extends AbstractMethod
 
         $transactionId = $payment->getTransactionId();
 
-        array_pop($transactionId);
-        $transactionId = join("-", $transactionId);
-
         $params = [
             "status" => 2,
             "trackingCode" => $trackingCode,
